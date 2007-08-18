@@ -487,7 +487,6 @@ static int mixercollect( u8 *outbuffer, int len )
 void AudioSwitchBuffers()
 {
 	int actuallen;
-	AUDIO_StopDMA();
 	if ( !ConfigRequested )
 	{
 		actuallen = mixercollect( soundbuffer[whichab], 3200 );
@@ -529,9 +528,7 @@ void pcm_close()
 
 int pcm_submit()
 {
-  if (pcm.pos < pcm.len) return 1;
   mix_audio8to16();
-  //mix_audio16();
   pcm.pos = 0;
       
   /* Restart Sound Processing if stopped */

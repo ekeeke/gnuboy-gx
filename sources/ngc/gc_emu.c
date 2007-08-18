@@ -54,8 +54,7 @@ void emu_run()
 			vid_end();
 			rtc_tick();
 			sound_mix();
-			pcm_submit();
-
+			
 			if (frameticker > 5) frameticker = 1;
 			while (frameticker == 0) usleep(50);
 			frameticker--;
