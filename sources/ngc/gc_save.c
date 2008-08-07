@@ -161,14 +161,14 @@ void loadstate(u8 *buffer)
 	int irl = hw.cgb ? 8 : 2;
 	int vrl = hw.cgb ? 4 : 2;
 	int srl = mbc.ramsize << 1;
-  unsigned long inbytes, outbytes;
+    unsigned long inbytes, outbytes;
 
-  /* get compressed state size */
-  memcpy(&inbytes,&buffer[0],sizeof(inbytes));
+    /* get compressed state size */
+    memcpy(&inbytes,&buffer[0],sizeof(inbytes));
 
-  /* uncompress state file */
-  outbytes = 0x2E000;
-  uncompress ((Bytef *) &state[0], &outbytes, (Bytef *) &buffer[sizeof(inbytes)], inbytes);
+    /* uncompress state file */
+    outbytes = 0x2E000;
+    uncompress ((char *) &state[0], &outbytes, (char *) &buffer[sizeof(inbytes)], inbytes);
 
 	ver = hramofs = hiofs = palofs = oamofs = wavofs = 0;
 
@@ -226,7 +226,7 @@ int savestate(u8 *buffer)
 	int irl = hw.cgb ? 8 : 2;
 	int vrl = hw.cgb ? 4 : 2;
 	int srl = mbc.ramsize << 1;
-  unsigned long inbytes, outbytes;
+    unsigned long inbytes, outbytes;
 
 	ver = 0x105;
 	iramblock = 1;
@@ -243,15 +243,15 @@ int savestate(u8 *buffer)
 		header[i][0] = *(un32 *)svars[i].key;
 		switch (svars[i].len)
 		{
-      case 1:
-        d = *(byte *)svars[i].ptr;
-        break;
-      case 2:
-        d = *(un16 *)svars[i].ptr;
-        break;
-      case 4:
-        d = *(un32 *)svars[i].ptr;
-        break;
+		case 1:
+			d = *(byte *)svars[i].ptr;
+			break;
+		case 2:
+			d = *(un16 *)svars[i].ptr;
+			break;
+		case 4:
+			d = *(un32 *)svars[i].ptr;
+			break;
 		}
 		header[i][1] = LIL(d);
 	}
@@ -268,14 +268,14 @@ int savestate(u8 *buffer)
 	memcpy(&state[sramblock<<12], ram.sbank, 4096*srl);
 
 	/* compress state file */
-  inbytes = ((1 + irl + vrl + srl)*4096);
+    inbytes = ((1 + irl + vrl + srl)*4096);
 	outbytes = 0x30000;
-  compress2 ((Bytef *) &buffer[sizeof(outbytes)], &outbytes, (Bytef *) &state[0], inbytes, 9);
+    compress2 ((char *) &buffer[sizeof(outbytes)], &outbytes, (char *) &state[0], inbytes, 9);
 
-  /* write compressed size in the first 32 bits for decompression */
-  memcpy(&buffer[0], &outbytes, sizeof(outbytes));
+    /* write compressed size in the first 32 bits for decompression */
+    memcpy(&buffer[0], &outbytes, sizeof(outbytes));
 
-  /* return total size */
-  return (sizeof(outbytes) + outbytes);
+    /* return total size */
+    return (sizeof(outbytes) + outbytes);
 }
 

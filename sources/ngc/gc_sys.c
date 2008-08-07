@@ -4,11 +4,7 @@
  * Copyright 2007 Eke-Eke
  * This file may be distributed under the terms of the GNU GPL.
  */
-#include <fat.h>
-#ifdef HW_RVL
-#include <wiiuse/wpad.h>
-#endif
-
+#include <sdcard.h>
 #include "font.h"
 #include "defs.h"
 #include "mem.h"
@@ -16,42 +12,13 @@
 #include "fb.h"
 #include "hw.h"
 #include "dvd.h"
-#include "config.h"
 
-/* 576 lines interlaced (PAL 50Hz, scaled) */
-GXRModeObj TV50hz_576i = 
-{
-  VI_TVMODE_PAL_INT,      // viDisplayMode
-  640,             // fbWidth
-  480,             // efbHeight
-  574,             // xfbHeight
-  (VI_MAX_WIDTH_PAL - 640)/2,         // viXOrigin
-  (VI_MAX_HEIGHT_PAL - 574)/2,        // viYOrigin
-  640,             // viWidth
-  574,             // viHeight
-  VI_XFBMODE_DF,   // xFBmode
-  GX_FALSE,        // field_rendering
-  GX_FALSE,        // aa
+extern int ConfigRequested;
+int PADCAL = 70;
 
-  // sample points arranged in increasing Y order
-	{
-		{6,6},{6,6},{6,6},  // pix 0, 3 sample points, 1/12 units, 4 bits each
-		{6,6},{6,6},{6,6},  // pix 1
-		{6,6},{6,6},{6,6},  // pix 2
-		{6,6},{6,6},{6,6}   // pix 3
-	},
-
-  // vertical filter[7], 1/64 units, 6 bits each
-	{
-		 8,         // line n-1
-		 8,         // line n-1
-		10,         // line n
-		12,         // line n
-		10,         // line n
-		 8,         // line n+1
-		 8          // line n+1
-	}
-};
+extern void legal ();
+extern void MainMenu ();
+extern int ManageSRAM (int direction);
 
 /****************************************************************************
  ****************************************************************************
@@ -60,22 +27,51 @@ GXRModeObj TV50hz_576i =
  *
  ****************************************************************************
  ****************************************************************************/
-extern u32 diff_usec(long long start,long long end);
-extern long long gettime();
+
+#define TB_CLOCK  40500000
+#define mftb(rval) ({unsigned long u; do { \
+         asm volatile ("mftbu %0" : "=r" (u)); \
+         asm volatile ("mftb %0" : "=r" ((rval)->l)); \
+         asm volatile ("mftbu %0" : "=r" ((rval)->u)); \
+         } while(u != ((rval)->u)); })
+
+
+unsigned long tb_diff_msec(tb_t *end, tb_t *start)
+{
+	unsigned long upper, lower;
+	upper = end->u - start->u;
+	if (start->l > end->l) upper--;
+	lower = end->l - start->l;
+	return ((upper*((unsigned long)0x80000000/(TB_CLOCK/2000))) + (lower/(TB_CLOCK/1000)));
+}
 
 void *sys_timer()
 {
-  return 0;
+	tb_t *c1;
+	c1 = malloc(sizeof *c1);
+	mftb(c1);
+	return c1;
 }
 
 int sys_elapsed(tb_t *c1)
 {
-  return 0;
+	tb_t now;
+	int usecs;
+
+	mftb(&now);
+	usecs = tb_diff_msec( &now, c1 ) * 1000;
+	*c1 = now;
+	return usecs;
 }
 
 void sys_sleep(int us)
 {
-  usleep(us);
+	tb_t start;
+	tb_t now;
+	if (us <= 0) return;
+	mftb(&start);
+	mftb(&now);
+	while(tb_diff_msec( &now, &start ) < (us/1000)) mftb(&now);
 }
 
 /****************************************************************************
@@ -92,12 +88,12 @@ int whichfb = 0;		/*** Switch ***/
 GXRModeObj *vmode;		/*** General video mode ***/
 
 /*** GX ***/
-#define TEX_WIDTH 160
-#define TEX_HEIGHT 144
+#define TEX_WIDTH 640
+#define TEX_HEIGHT 480
 #define TEXSIZE ( (TEX_WIDTH * TEX_HEIGHT) * 2 )
 #define DEFAULT_FIFO_SIZE 256 * 1024
-#define HASPECT 250 // original aspect, scaled to fit screen height
-#define VASPECT 224
+#define HASPECT 80
+#define VASPECT 60
 
 static u8 gp_fifo[DEFAULT_FIFO_SIZE] ATTRIBUTE_ALIGN (32);
 static u8 texturemem[TEXSIZE] ATTRIBUTE_ALIGN (32);
@@ -105,7 +101,7 @@ GXTexObj texobj;
 static Mtx view;
 int vwidth, vheight, oldvwidth, oldvheight;
 
-
+/* New texture based scaler */
 typedef struct tagcamera
 {
   Vector pos;
@@ -113,73 +109,78 @@ typedef struct tagcamera
   Vector view;
 } camera;
 
-/*** Square Matrix
-     This structure controls the size of the image on the screen.
-     Think of the output as a -80 x 80 by -60 x 60 graph.
-***/
+/* Square Matrix
+   This structure controls the size of the image on the screen.
+   Think of the output as a -80 x 80 by -60 x 60 graph.
+ */
 s16 square[] ATTRIBUTE_ALIGN (32) =
 {
-  /*
-   * X,   Y,  Z
-   * Values set are for roughly 4:3 aspect
-  */
-  -HASPECT,  VASPECT, 0,// 0
-   HASPECT,  VASPECT, 0,// 1
-   HASPECT, -VASPECT, 0,// 2
-  -HASPECT, -VASPECT, 0,// 3
+	/*
+	 * X,   Y,  Z
+	 * Values set are for roughly 4:3 aspect
+	 */
+	-HASPECT, VASPECT, 0,	// 0
+	HASPECT, VASPECT, 0,	// 1
+	HASPECT, -VASPECT, 0,	// 2
+	-HASPECT, -VASPECT, 0,	// 3
 };
 
-static camera cam =
-{
-  {0.0F,  0.0F, -100.0F},
-  {0.0F, -1.0F,    0.0F},
-  {0.0F,  0.0F,    0.0F}
+static camera cam = { {0.0F, 0.0F, 0.0F},
+{0.0F, 0.5F, 0.0F},
+{0.0F, 0.0F, -0.5F}
 };
+
+/****************************************************************************
+ * framestart
+ *
+ * Simply increment the tick counter
+ ****************************************************************************/
+int frameticker = 0;
+static void framestart()
+{
+	frameticker++;
+}
 
 /****************************************************************************
  * Scaler Support Functions
  ****************************************************************************/
-/* init rendering */
-/* should be called each time you change quad aspect ratio */
-void draw_init (void)
+static void draw_init (void)
 {
-  /* Clear all Vertex params */
   GX_ClearVtxDesc ();
-
-  /* Set Position Params (set quad aspect ratio) */
-  GX_SetVtxAttrFmt (GX_VTXFMT0, GX_VA_POS, GX_POS_XYZ, GX_S16, 0);
   GX_SetVtxDesc (GX_VA_POS, GX_INDEX8);
-  GX_SetArray (GX_VA_POS, square, 3 * sizeof (s16));
-
-  /* Set Tex Coord Params */
-  GX_SetVtxAttrFmt (GX_VTXFMT0, GX_VA_TEX0, GX_TEX_ST, GX_F32, 0);
+  GX_SetVtxDesc (GX_VA_CLR0, GX_INDEX8);
   GX_SetVtxDesc (GX_VA_TEX0, GX_DIRECT);
-  GX_SetTevOp (GX_TEVSTAGE0, GX_REPLACE);
-  GX_SetTevOrder (GX_TEVSTAGE0, GX_TEXCOORD0, GX_TEXMAP0, GX_COLORNULL);
+  GX_SetVtxAttrFmt (GX_VTXFMT0, GX_VA_POS, GX_POS_XYZ, GX_S16, 0);
+  GX_SetVtxAttrFmt (GX_VTXFMT0, GX_VA_CLR0, GX_CLR_RGBA, GX_RGBA8, 0);
+  GX_SetVtxAttrFmt (GX_VTXFMT0, GX_VA_TEX0, GX_TEX_ST, GX_F32, 0);
+  GX_SetArray (GX_VA_POS, square, 3 * sizeof (s16));
   GX_SetNumTexGens (1);
-  GX_SetNumChans(0);
-
-  /** Set Modelview **/
-  memset (&view, 0, sizeof (Mtx));
-  guLookAt(view, &cam.pos, &cam.up, &cam.view);
-  GX_LoadPosMtxImm (view, GX_PNMTX0);
+  GX_SetTexCoordGen (GX_TEXCOORD0, GX_TG_MTX2x4, GX_TG_TEX0, GX_IDENTITY);
+  GX_InvalidateTexAll ();
+  GX_InitTexObj (&texobj, texturemem, vwidth, vheight, GX_TF_RGB565, GX_CLAMP, GX_CLAMP, GX_FALSE);
 }
 
-/* vertex rendering */
-static void draw_vert (u8 pos, f32 s, f32 t)
+static void draw_vert (u8 pos, u8 c, f32 s, f32 t)
 {
   GX_Position1x8 (pos);
+  GX_Color1x8 (c);
   GX_TexCoord2f32 (s, t);
 }
 
-/* textured quad rendering */
-static void draw_square ()
+static void draw_square (Mtx v)
 {
+  Mtx m;  // model matrix.
+  Mtx mv; // modelview matrix.
+
+  guMtxIdentity (m);
+  guMtxTransApply (m, m, 0, 0, -100);
+  guMtxConcat (v, m, mv);
+  GX_LoadPosMtxImm (mv, GX_PNMTX0);
   GX_Begin (GX_QUADS, GX_VTXFMT0, 4);
-  draw_vert (3, 0.0, 0.0);
-  draw_vert (2, 1.0, 0.0);
-  draw_vert (1, 1.0, 1.0);
-  draw_vert (0, 0.0, 1.0);
+  draw_vert (0, 0, 0.0, 0.0);
+  draw_vert (1, 0, 1.0, 0.0);
+  draw_vert (2, 0, 1.0, 1.0);
+  draw_vert (3, 0, 0.0, 1.0);
   GX_End ();
 }
 
@@ -189,50 +190,39 @@ static void draw_square ()
  * This function initialises the GX.
  * Based on texturetest from libOGC examples.
  ****************************************************************************/
-/* initialize GX rendering */
-static void StartGX (void)
+void StartGX (void)
 {
   Mtx p;
+
   GXColor gxbackground = { 0, 0, 0, 0xff };
 
-  /*** Clear out FIFO area ***/
+	/*** Clear out FIFO area ***/
   memset (&gp_fifo, 0, DEFAULT_FIFO_SIZE);
 
-  /*** Initialise GX ***/
+	/*** Initialise GX ***/
   GX_Init (&gp_fifo, DEFAULT_FIFO_SIZE);
   GX_SetCopyClear (gxbackground, 0x00ffffff);
-  GX_SetViewport (0.0F, 0.0F, vmode->fbWidth, vmode->efbHeight, 0.0F, 1.0F);
+
+  GX_SetViewport (0, 0, vmode->fbWidth, vmode->efbHeight, 0, 1);
+  GX_SetDispCopyYScale ((f32) vmode->xfbHeight / (f32) vmode->efbHeight);
   GX_SetScissor (0, 0, vmode->fbWidth, vmode->efbHeight);
-  f32 yScale = GX_GetYScaleFactor(vmode->efbHeight, vmode->xfbHeight);
-  u16 xfbHeight = GX_SetDispCopyYScale (yScale);
   GX_SetDispCopySrc (0, 0, vmode->fbWidth, vmode->efbHeight);
-  GX_SetDispCopyDst (vmode->fbWidth, xfbHeight);
-  GX_SetCopyFilter (vmode->aa, vmode->sample_pattern, GX_TRUE, vmode->vfilter);
-  GX_SetFieldMode (vmode->field_rendering, ((vmode->viHeight == 2 * vmode->xfbHeight) ? GX_ENABLE : GX_DISABLE));
+  GX_SetDispCopyDst (vmode->fbWidth, vmode->xfbHeight);
+  GX_SetCopyFilter (vmode->aa, vmode->sample_pattern, GX_TRUE,
+		    vmode->vfilter);
+  GX_SetFieldMode (vmode->field_rendering,
+		   ((vmode->viHeight ==
+		     2 * vmode->xfbHeight) ? GX_ENABLE : GX_DISABLE));
   GX_SetPixelFmt (GX_PF_RGB8_Z24, GX_ZC_LINEAR);
   GX_SetCullMode (GX_CULL_NONE);
-  GX_SetDispCopyGamma (GX_GM_1_0);
-  GX_SetZMode(GX_FALSE, GX_ALWAYS, GX_TRUE);
-  GX_SetColorUpdate (GX_TRUE);
-  guOrtho(p, vmode->efbHeight/2, -(vmode->efbHeight/2), -(vmode->fbWidth/2), vmode->fbWidth/2, 100, 1000);
-  GX_LoadProjectionMtx (p, GX_ORTHOGRAPHIC);
-
-  /*** Copy EFB -> XFB ***/
   GX_CopyDisp (xfb[whichfb ^ 1], GX_TRUE);
+  GX_SetDispCopyGamma (GX_GM_1_0);
 
-  /*** Initialize texture data ***/
+  guPerspective (p, 60, 1.33F, 10.0F, 1000.0F);
+  GX_LoadProjectionMtx (p, GX_PERSPECTIVE);
   memset (texturemem, 0, TEX_WIDTH * TEX_HEIGHT * 2);
-
   vwidth = 100;
   vheight = 100;
-}
-
-/* PreRetrace handler */
-int frameticker = 0;
-static void framestart()
-{
-  /* simply increment the tick counter */
-  frameticker++;
 }
 
 /****************************************************************************
@@ -240,10 +230,8 @@ static void framestart()
  *
  * This function MUST be called at startup.
  ****************************************************************************/
-extern GXRModeObj TVEurgb60Hz480IntDf;
-extern void dvd_drive_detect();
+u8 isWII = 0;
 
-u8 gc_pal;
 void InitGCVideo ()
 {
   /*
@@ -253,40 +241,30 @@ void InitGCVideo ()
 
   VIDEO_Init ();
 
+  PAD_Init ();
+
   /*
    * Reset the video mode
    * This is always set to 60hz
    * Whether your running PAL or NTSC
    */
-  vmode = VIDEO_GetPreferredMode(NULL);
-
-  /* adjust display settings */
-  switch (vmode->viTVMode >> 2)
-  {
-    case VI_PAL:
-      /* display should be centered vertically (borders) */
-      vmode = &TVPal574IntDfScale;
-      vmode->xfbHeight = 480;
-      vmode->viYOrigin = (VI_MAX_HEIGHT_PAL - 480)/2;
-      vmode->viHeight = 480;
-
-      /* 50Hz */
-      gc_pal = 1;
-      break;
-    
-    default:
-  	  gc_pal = 0;
-      break;
-  }
-
+  vmode = &TVNtsc480IntDf;
   VIDEO_Configure (vmode);
 
-  /* Configure the framebuffers (double-buffering) */
-  xfb[0] = (u32 *) MEM_K0_TO_K1((u32 *) SYS_AllocateFramebuffer(&TV50hz_576i));
-  xfb[1] = (u32 *) MEM_K0_TO_K1((u32 *) SYS_AllocateFramebuffer(&TV50hz_576i));
+  /*** Now configure the framebuffer. 
+	     Really a framebuffer is just a chunk of memory
+	     to hold the display line by line.
+   **/
+
+  xfb[0] = (u32 *) MEM_K0_TO_K1((u32 *) SYS_AllocateFramebuffer(vmode));
+
+  /*** I prefer also to have a second buffer for double-buffering.
+	     This is not needed for the console demo.
+   ***/
+  xfb[1] = (u32 *) MEM_K0_TO_K1((u32 *) SYS_AllocateFramebuffer(vmode));
 
   /*** Define a console ***/
-  console_init(xfb[0], 20, 64, 640, 574, 574 * 2);
+  console_init(xfb[0], 20, 64, vmode->fbWidth, vmode->xfbHeight, vmode->fbWidth * 2);
 
   /*** Clear framebuffer to black ***/
   VIDEO_ClearFrameBuffer(vmode, xfb[0], COLOR_BLACK);
@@ -299,28 +277,26 @@ void InitGCVideo ()
   VIDEO_SetPreRetraceCallback(framestart);
 
   /*** Get the PAD status updated by libogc ***/
+  VIDEO_SetPostRetraceCallback(PAD_ScanPads);
   VIDEO_SetBlack (FALSE);
   
   /*** Update the video for next vblank ***/
   VIDEO_Flush();
 
   VIDEO_WaitVSync(); /*** Wait for VBL ***/
-  VIDEO_WaitVSync();
+  if (vmode->viTVMode & VI_NON_INTERLACE) VIDEO_WaitVSync();
 
-  PAD_Init ();
-#ifdef HW_RVL
-  WPAD_Init();
-	WPAD_SetIdleTimeout(60);
-  WPAD_SetDataFormat(WPAD_CHAN_ALL,WPAD_FMT_BTNS_ACC_IR);
-  WPAD_SetVRes(WPAD_CHAN_ALL,640,480);
-#else 
   DVD_Init ();
-  dvd_drive_detect();
-#endif
-  fatInitDefault();
+  SDCARD_Init ();
   unpackBackdrop ();
   init_font();
   StartGX ();
+
+  /* Wii drive detection for 4.7Gb support */
+  int driveid = dvd_inquiry();
+  if ((driveid == 4) || (driveid == 6) || (driveid == 8)) isWII = 0;
+  else isWII = 1;
+
 }
 
 /* Gnuboy FrameBuffer */
@@ -333,60 +309,60 @@ void vid_end()
 
   long long int *dst = (long long int *) texturemem;
   long long int *src1 = (long long int *) fb.ptr;
-  long long int *src2 = (long long int *) (fb.ptr + 320);
-  long long int *src3 = (long long int *) (fb.ptr + 640);
-  long long int *src4 = (long long int *) (fb.ptr + 960);
+  long long int *src2 = (long long int *) (fb.ptr + 1280);
+  long long int *src3 = (long long int *) (fb.ptr + 2560);
+  long long int *src4 = (long long int *) (fb.ptr + 3840);
 
-  vwidth  = 160;
-  vheight = 144;
+  /* 
+     gnuboy automatically scale the 160*144 display 
+	 to the desired resolution (640*480)
+     scale factor is set to 3 in lcd.c 
+  */
+  vwidth  = 640;
+  vheight = 480;
   whichfb ^= 1;
 
   if ((oldvheight != vheight) || (oldvwidth != vwidth))
   {
-      /* Update scaling */
+	  /* Update scaling */
       oldvwidth = vwidth;
       oldvheight = vheight;
       draw_init ();
-      
-      /* reinitialize texture */
-      GX_InvalidateTexAll ();
-      GX_InitTexObj (&texobj, texturemem, vwidth, vheight, GX_TF_RGB565, GX_CLAMP, GX_CLAMP, GX_FALSE);
+      memset (&view, 0, sizeof (Mtx));
+      guLookAt (view, &cam.pos, &cam.up, &cam.view);
+      GX_SetViewport (0, 0, vmode->fbWidth, vmode->efbHeight, 0, 1);
   }
 
-  /* Invalidate memory */
   GX_InvVtxCache ();
   GX_InvalidateTexAll ();
+  GX_SetTevOp (GX_TEVSTAGE0, GX_DECAL);
+  GX_SetTevOrder (GX_TEVSTAGE0, GX_TEXCOORD0, GX_TEXMAP0, GX_COLOR0A0);
 
   for (h = 0; h < vheight; h += 4)
   {
-    for (w = 0; w < 40; w++)
-    {
-      *dst++ = *src1++;
-      *dst++ = *src2++;
-      *dst++ = *src3++;
-      *dst++ = *src4++;
-    }
+    for (w = 0; w < 160; w++)
+	{
+	  *dst++ = *src1++;
+	  *dst++ = *src2++;
+	  *dst++ = *src3++;
+	  *dst++ = *src4++;
+	}
 
-    src1 += 120;
-    src2 += 120;
-    src3 += 120;
-    src4 += 120;
+    src1 += 480;
+    src2 += 480;
+    src3 += 480;
+    src4 += 480;
   }
 
-  /* load texture into GX */
-  DCFlushRange (texturemem, vwidth * vheight * 2);
+  DCFlushRange (texturemem, TEXSIZE);
+  GX_SetNumChans (1);
   GX_LoadTexObj (&texobj, GX_TEXMAP0);
-  
-  /* render textured quad */
-  draw_square ();
+  draw_square (view);
   GX_DrawDone ();
-
-  /* switch external framebuffers then copy EFB to XFB */
-  whichfb ^= 1;
+  GX_SetZMode (GX_TRUE, GX_LEQUAL, GX_TRUE);
+  GX_SetColorUpdate (GX_TRUE);
   GX_CopyDisp (xfb[whichfb], GX_TRUE);
   GX_Flush ();
-
-  /* set next XFB */
   VIDEO_SetNextFramebuffer (xfb[whichfb]);
   VIDEO_Flush ();
 }
@@ -395,11 +371,11 @@ void vid_init ()
 {
   InitGCVideo ();
 
-  fb.w = 160;
-  fb.h = 144;
+  fb.w = 640;
+  fb.h = 480;
   fb.pelsize = 2;
-  fb.pitch = 320;
-  fb.ptr = malloc (fb.pitch*fb.h);
+  fb.pitch = 1280;
+  fb.ptr = malloc (640 * 480 * 2);
   fb.enabled = 1;
   fb.dirty = 0;
   fb.indexed = 0;
@@ -413,11 +389,12 @@ void vid_init ()
 
 void vid_reset()
 {
-  if (fb.ptr) memset(fb.ptr, 0x00, fb.pitch*fb.h);
-  fb.enabled = 1;
-  fb.dirty = 0;
-  fb.indexed = 0;
-}
+	if (fb.ptr) memset(fb.ptr, 0x00, 640*480*2);
+	fb.enabled = 1;
+    fb.dirty = 0;
+    fb.indexed = 0;
+}  
+	
 
 void vid_setpal(int i, int r, int g, int b)
 {}
@@ -433,9 +410,8 @@ void vid_begin()
  *
  ****************************************************************************
  ****************************************************************************/
-static u8 ConfigRequested;
 static u8 soundbuffer[2][3200] ATTRIBUTE_ALIGN(32);
-static u8 mixbuffer[16000];
+static u8 mixbuffer[16384];
 static int mixhead = 0;
 static int mixtail = 0;
 static int whichab = 0;
@@ -444,64 +420,83 @@ int IsPlaying = 0;
 struct pcm pcm;
 
 /*** Correct method for promoting signed 8 bit to signed 16 bit samples ***/
-/*** Now mixes into mixbuffer, and no collision is possible (Softdev) ***/
+/*** Now mixes into mixbuffer, and no collision is possible ***/
 void mix_audio8to16( void )
 {
-  /*** GNUBoy internal audio format is u8pcm 
-       So use standard upscale. Clipping has already been performed
-       on the original sample, so no further work is required.
+	/*** GNUBoy internal audio format is u8pcm 
+ 	     So use standard upscale. Clipping has already been performed
+	     on the original sample, so no further work is required.
         ***/
-  int i;
-  u16 sample;
-  u16 *src = (u16 *)pcm.buf;
-  u32 *dst = (u32 *)mixbuffer;
+	int i;
+	u16 sample;
+	u16 *src = (u16 *)pcm.buf;
+	u32 *dst = (u32 *)mixbuffer;
 
-  for( i = 0; i < pcm.pos; i+=2 )
-  {
-    sample = *src++;
-    
-    /*** Promote to 16 bit and invert sign ***/
-    dst[mixhead++] = ( ( ( sample ^ 0x80 ) & 0xff ) << 8 ) | ( ( ( sample ^ 0x8000 ) & 0xff00 ) << 16);
-    if (mixhead == 4000) mixhead = 0;
-  }
+	for( i = 0; i < pcm.pos; i+=2 )
+	{
+		sample = *src++;
+		/*** Promote to 16 bit and invert sign ***/
+		dst[mixhead++] = ( ( ( sample ^ 0x80 ) & 0xff ) << 8 ) | ( ( ( sample ^ 0x8000 ) & 0xff00 ) << 16);
+		mixhead &= 0xfff;
+	}
 }
+
+/* Old Conversion Function - less optimized than the one above
+ * i'm keeping it for better understanding ;)
+ */
+void mix_audio16()
+{
+    int i;
+	u32 *dst = (u32 *)mixbuffer;
+
+	s16 l,r;
+
+    for (i=0; i<pcm.pos; i+=2)
+    {
+		l = ((s16)pcm.buf[i] << 8) - 32768;
+        r = ((s16)pcm.buf[i+1] << 8) - 32768;
+		dst[mixhead++] = ((l << 16) & 0xFFFF0000) | (r & 0x0000FFFF);
+		mixhead &= 0xfff;
+    }
+}
+
 
 static int mixercollect( u8 *outbuffer, int len )
 {
-  u32 *dst = (u32 *)outbuffer;
-  u32 *src = (u32 *)mixbuffer;
-  int done = 0;
+	u32 *dst = (u32 *)outbuffer;
+	u32 *src = (u32 *)mixbuffer;
+	int done = 0;
 
-  /*** Always clear output buffer ***/
-  memset(outbuffer, 0, len);
+	/*** Always clear output buffer ***/
+	memset(outbuffer, 0, len);
 
-  while ( ( mixtail != mixhead ) && ( done < len ) )
-  {
-    *dst++ = src[mixtail++];
-    if (mixtail == 4000) mixtail = 0;
-    done += 4;
-  }
+	while ( ( mixtail != mixhead ) && ( done < len ) )
+	{
+		*dst++ = src[mixtail++];
+		mixtail &= 0xFFF;
+		done += 4;
+	}
 
-  /*** Realign to 32 bytes for DMA ***/
-  done &= ~0x1f;
-  if ( !done ) return len >> 1;
+	/*** Realign to 32 bytes for DMA ***/
+	done &= ~0x1f;
+	if ( !done ) return len >> 1;
 
-  return done;
+	return done;
 }
 
 void AudioSwitchBuffers()
 {
-  int actuallen;
-  if ( !ConfigRequested )
-  {
-    actuallen = mixercollect( soundbuffer[whichab], 3200 );
-    DCFlushRange(soundbuffer[whichab], actuallen);
-    AUDIO_InitDMA((u32)soundbuffer[whichab], actuallen);
-    AUDIO_StartDMA();
-    whichab ^= 1;
-    IsPlaying = 1;
-  }
-  else IsPlaying = 0;
+	int actuallen;
+	if ( !ConfigRequested )
+	{
+		actuallen = mixercollect( soundbuffer[whichab], 3200 );
+		DCFlushRange(soundbuffer[whichab], actuallen);
+		AUDIO_InitDMA((u32)soundbuffer[whichab], actuallen);
+		AUDIO_StartDMA();
+		whichab ^= 1;
+		IsPlaying = 1;
+	}
+	else IsPlaying = 0;
 }
 
 /* Gnuboy Audio Support Functions */
@@ -518,13 +513,13 @@ void pcm_init ()
 
 void pcm_reset()
 {
-  memset(soundbuffer, 0, 3200*2);
-  memset(mixbuffer, 0, 16000);
-  if (pcm.buf)
-  {
-    pcm.pos = 0;
-    memset(pcm.buf, 0, pcm.len);
-  }
+	memset(soundbuffer, 0, 3200*2);
+    memset(mixbuffer, 0, 16384);
+    if (pcm.buf)
+	{
+		pcm.pos = 0;
+		memset(pcm.buf, 0, pcm.len);
+	}
 }
 
 void pcm_close()
@@ -533,15 +528,13 @@ void pcm_close()
 
 int pcm_submit()
 {
-	if (!pcm.buf) return 0;
-	if (pcm.pos < pcm.len) return 1;
-	mix_audio8to16();
-	pcm.pos = 0;
+  mix_audio8to16();
+  pcm.pos = 0;
       
-	/* Restart Sound Processing if stopped */
-	if (IsPlaying == 0) AudioSwitchBuffers ();
+  /* Restart Sound Processing if stopped */
+  if (IsPlaying == 0) AudioSwitchBuffers ();
   
-	return 1;
+  return 1;
 }
 
 /****************************************************************************
@@ -564,16 +557,14 @@ int pcm_submit()
  *		  SELECT       Y
  *
  */
-static u32 gbpadmap[8] =
-{
+unsigned int gbpadmap[] = {
   PAD_A, PAD_B,
   PAD_SELECT, PAD_START,
   PAD_UP, PAD_DOWN,
   PAD_LEFT, PAD_RIGHT
 };
 
-static u16 padmap[8] =
-{
+unsigned short gcpadmap[] = {
   PAD_BUTTON_A, PAD_BUTTON_B,
   PAD_BUTTON_Y, PAD_BUTTON_START,
   PAD_BUTTON_UP, PAD_BUTTON_DOWN,
@@ -584,309 +575,70 @@ extern u8 SILENT;
 extern int CARDSLOT;
 extern int use_SDCARD;
 extern int gbromsize;
-extern void MainMenu ();
-extern int ManageSRAM (int direction);
 
-int PADCAL = 30;
-
-#ifdef HW_RVL
-static u32 wpadmap[3][8] =
-{
-  {
-    WPAD_BUTTON_2, WPAD_BUTTON_1,
-    WPAD_BUTTON_MINUS, WPAD_BUTTON_PLUS,
-    WPAD_BUTTON_RIGHT, WPAD_BUTTON_LEFT,
-    WPAD_BUTTON_UP, WPAD_BUTTON_DOWN
-  },
-  {
-    WPAD_BUTTON_A, WPAD_BUTTON_B,
-    WPAD_BUTTON_MINUS, WPAD_BUTTON_PLUS,
-    WPAD_BUTTON_UP, WPAD_BUTTON_DOWN,
-    WPAD_BUTTON_LEFT, WPAD_BUTTON_RIGHT
-  },
-  {
-    WPAD_CLASSIC_BUTTON_B, WPAD_CLASSIC_BUTTON_A,
-    WPAD_CLASSIC_BUTTON_MINUS, WPAD_CLASSIC_BUTTON_PLUS,
-    WPAD_CLASSIC_BUTTON_UP, WPAD_CLASSIC_BUTTON_DOWN,
-    WPAD_CLASSIC_BUTTON_LEFT, WPAD_CLASSIC_BUTTON_RIGHT
-  }
-};
-
-#define PI 3.14159265f
-
-static s8 WPAD_StickX(u8 chan,u8 right)
-{
-  float mag = 0.0;
-  float ang = 0.0;
-  WPADData *data = WPAD_Data(chan);
-
-  switch (data->exp.type)
-  {
-    case WPAD_EXP_NUNCHUK:
-    case WPAD_EXP_GUITARHERO3:
-      if (right == 0)
-      {
-        mag = data->exp.nunchuk.js.mag;
-        ang = data->exp.nunchuk.js.ang;
-      }
-      break;
-
-    case WPAD_EXP_CLASSIC:
-      if (right == 0)
-      {
-        mag = data->exp.classic.ljs.mag;
-        ang = data->exp.classic.ljs.ang;
-      }
-      else
-      {
-        mag = data->exp.classic.rjs.mag;
-        ang = data->exp.classic.rjs.ang;
-      }
-      break;
-
-    default:
-      break;
-  }
-
-  /* calculate X value (angle need to be converted into radian) */
-  if (mag > 1.0) mag = 1.0;
-  else if (mag < -1.0) mag = -1.0;
-  double val = mag * sin(PI * ang/180.0f);
- 
-  return (s8)(val * 128.0f);
-}
-
-
-static s8 WPAD_StickY(u8 chan, u8 right)
-{
-  float mag = 0.0;
-  float ang = 0.0;
-  WPADData *data = WPAD_Data(chan);
-
-  switch (data->exp.type)
-  {
-    case WPAD_EXP_NUNCHUK:
-    case WPAD_EXP_GUITARHERO3:
-      if (right == 0)
-      {
-        mag = data->exp.nunchuk.js.mag;
-        ang = data->exp.nunchuk.js.ang;
-      }
-      break;
-
-    case WPAD_EXP_CLASSIC:
-      if (right == 0)
-      {
-        mag = data->exp.classic.ljs.mag;
-        ang = data->exp.classic.ljs.ang;
-      }
-      else
-      {
-        mag = data->exp.classic.rjs.mag;
-        ang = data->exp.classic.rjs.ang;
-      }
-      break;
-
-    default:
-      break;
-  }
-
-  /* calculate X value (angle need to be converted into radian) */
-  if (mag > 1.0) mag = 1.0;
-  else if (mag < -1.0) mag = -1.0;
-  double val = mag * cos(PI * ang/180.0f);
- 
-  return (s8)(val * 128.0f);
-}
-#endif
-
-u16 getMenuButtons(void)
-{
-  /* gamecube pad */
-  PAD_ScanPads();
-  u16 p = PAD_ButtonsDown(0);
-  s8 x  = PAD_StickX(0);
-  s8 y  = PAD_StickY(0);
-  if (x > 70) p |= PAD_BUTTON_RIGHT;
-  else if (x < -70) p |= PAD_BUTTON_LEFT;
-	if (y > 60) p |= PAD_BUTTON_UP;
-  else if (y < -60) p |= PAD_BUTTON_DOWN;
-
-#ifdef HW_RVL
-  /* wiimote support */
-  struct ir_t ir;
-  u32 exp;
-
-  if (WPAD_Probe(0, &exp) == WPAD_ERR_NONE)
-  {
-    WPAD_ScanPads();
-    u32 q = WPAD_ButtonsDown(0);
-    x = WPAD_StickX(0, 0);
-    y = WPAD_StickY(0, 0);
-
-    /* default directions */
-    WPAD_IR(0, &ir);
-    if (ir.valid)
-    {
-      /* Wiimote is pointed toward screen */
-      if ((q & WPAD_BUTTON_UP) || (y > 70))         p |= PAD_BUTTON_UP;
-      else if ((q & WPAD_BUTTON_DOWN) || (y < -70)) p |= PAD_BUTTON_DOWN;
-      if ((q & WPAD_BUTTON_LEFT) || (x < -60))      p |= PAD_BUTTON_LEFT;
-      else if ((q & WPAD_BUTTON_RIGHT) || (x > 60)) p |= PAD_BUTTON_RIGHT;
-    }
-    else
-    {
-      /* Wiimote is used horizontally */
-      if ((q & WPAD_BUTTON_RIGHT) || (y > 70))         p |= PAD_BUTTON_UP;
-      else if ((q & WPAD_BUTTON_LEFT) || (y < -70)) p |= PAD_BUTTON_DOWN;
-      if ((q & WPAD_BUTTON_UP) || (x < -60))      p |= PAD_BUTTON_LEFT;
-      else if ((q & WPAD_BUTTON_DOWN) || (x > 60)) p |= PAD_BUTTON_RIGHT;
-    }
-
-    /* default keys */
-    if (q & WPAD_BUTTON_MINUS)  p |= PAD_TRIGGER_L;
-    if (q & WPAD_BUTTON_PLUS)   p |= PAD_TRIGGER_R;
-    if (q & WPAD_BUTTON_A)      p |= PAD_BUTTON_A;
-    if (q & WPAD_BUTTON_B)      p |= PAD_BUTTON_B;
-    if (q & WPAD_BUTTON_2)      p |= PAD_BUTTON_A;
-    if (q & WPAD_BUTTON_1)      p |= PAD_BUTTON_B;
-    if (q & WPAD_BUTTON_HOME)   p |= PAD_TRIGGER_Z;
-
-    /* classic controller expansion */
-    if (exp == WPAD_EXP_CLASSIC)
-    {
-      if (q & WPAD_CLASSIC_BUTTON_UP)         p |= PAD_BUTTON_UP;
-      else if (q & WPAD_CLASSIC_BUTTON_DOWN)  p |= PAD_BUTTON_DOWN;
-      if (q & WPAD_CLASSIC_BUTTON_LEFT)       p |= PAD_BUTTON_LEFT;
-      else if (q & WPAD_CLASSIC_BUTTON_RIGHT) p |= PAD_BUTTON_RIGHT;
-
-      if (q & WPAD_CLASSIC_BUTTON_FULL_L) p |= PAD_TRIGGER_L;
-      if (q & WPAD_CLASSIC_BUTTON_FULL_R) p |= PAD_TRIGGER_R;
-      if (q & WPAD_CLASSIC_BUTTON_A)      p |= PAD_BUTTON_A;
-      if (q & WPAD_CLASSIC_BUTTON_B)      p |= PAD_BUTTON_B;
-      if (q & WPAD_CLASSIC_BUTTON_HOME)   p |= PAD_TRIGGER_Z;
-    }
-  }
-#endif
-
-  return p;
-}
-
-int update_input()
+int GetJoys (int joynum)
 {
   int i;
-  s8 x, y;
-  u32 p;
+  signed char x, y;
 
-  /* update PAD status */
-  PAD_ScanPads();
-  p = PAD_ButtonsHeld(0);
-  x = PAD_StickX (0);
-  y = PAD_StickY (0);
-
+  /* Save in MC Slot B, when L&R are pressed*/
+   if (PAD_ButtonsHeld(0) == (PAD_TRIGGER_L | PAD_TRIGGER_R))
+   {
+       if (gbromsize > 0 && mbc.batt)
+	   {
+          ShowAction ("Saving SRAM & RTC ...");
+		  SILENT = 1; /* this should be transparent to the user */
+		  CARDSLOT = CARD_SLOTB;
+		  use_SDCARD = 0;
+	      ManageSRAM (0);
+		  SILENT = 0;
+       }
+  }
+  
   /* Check for menu request */
-  if (p & PAD_TRIGGER_Z)
+  if (PAD_ButtonsHeld(joynum) & PAD_TRIGGER_Z)
   {
     ConfigRequested = 1;
-    return 0;
+	return 0;
   }
   
   /* PAD Buttons */
   for (i = 0; i < 4; i++)
   {
-    if (p & padmap[i]) pad_press(gbpadmap[i]);
-    else pad_release (gbpadmap[i]);
+    if (PAD_ButtonsHeld(joynum) & gcpadmap[i]) pad_press(gbpadmap[i]);
+	else pad_release (gbpadmap[i]);
   }
+
+  x = PAD_StickX (joynum);
+  y = PAD_StickY (joynum);
 
   /* PAD Directions */
-  if ((x >  PADCAL) || (p & padmap[7])) pad_press (PAD_RIGHT);
+  if ((x >  PADCAL) || (PAD_ButtonsHeld(joynum) & gcpadmap[7])) pad_press (PAD_RIGHT);
   else pad_release (PAD_RIGHT);
 
-  if ((x < -PADCAL) || (p & padmap[6])) pad_press (PAD_LEFT);
+  if ((x < -PADCAL) || (PAD_ButtonsHeld(joynum) & gcpadmap[6])) pad_press (PAD_LEFT);
   else pad_release (PAD_LEFT);
 
-  if ((y >  PADCAL) || (p & padmap[4])) pad_press (PAD_UP);
+  if ((y >  PADCAL) || (PAD_ButtonsHeld(joynum) & gcpadmap[4])) pad_press (PAD_UP);
   else pad_release (PAD_UP);
   
-  if ((y < -PADCAL) || (p & padmap[5])) pad_press (PAD_DOWN);
+  if ((y < -PADCAL) || (PAD_ButtonsHeld(joynum) & gcpadmap[5])) pad_press (PAD_DOWN);
   else pad_release (PAD_DOWN);
-
-#ifdef HW_RVL
-  u32 exp;
-
-  /* update WPAD status */
-  WPAD_ScanPads();
-  if (WPAD_Probe(0, &exp) == WPAD_ERR_NONE)
-  {
-    p = WPAD_ButtonsHeld(0);
-    x = WPAD_StickX(0, 0);
-    y = WPAD_StickY(0, 0);
-
-      if ((p & WPAD_BUTTON_HOME) || (p & WPAD_CLASSIC_BUTTON_HOME))
-      {
-        ConfigRequested = 1;
-        return 0;
-      }
-
-      /* PAD Buttons */
-      for (i = 0; i < 4; i++)
-      {
-        if (p & wpadmap[exp][i]) pad_press(gbpadmap[i]);
-        else pad_release (gbpadmap[i]);
-      }
-
-      /* PAD Directions */
-      if ((x >  PADCAL) || (p & wpadmap[exp][7])) pad_press (PAD_RIGHT);
-      else pad_release (PAD_RIGHT);
-
-      if ((x < -PADCAL) || (p & wpadmap[exp][6])) pad_press (PAD_LEFT);
-      else pad_release (PAD_LEFT);
-
-      if ((y >  PADCAL) || (p & wpadmap[exp][4])) pad_press (PAD_UP);
-      else pad_release (PAD_UP);
-      
-      if ((y < -PADCAL) || (p & wpadmap[exp][5])) pad_press (PAD_DOWN);
-      else pad_release (PAD_DOWN);
-  }
-#endif
 
   return 1;
 }
 
-extern u32 diff_usec(long long start,long long end);
-extern long long gettime();
-long long now, prev;
-
-/* Event polling */
+/* Gnuboy Input Support Function */
 void ev_poll()
 {
-  /* update inputs */
-  update_input();
+	/* Update inputs */
+    GetJoys (0);
 
-  /* goto menu */
-  if (ConfigRequested)
-  {
-    AUDIO_StopDMA ();
-    IsPlaying = 0;
-    MainMenu ();
-    ConfigRequested = 0;
-   
-    /* reset frame timings */
-    frameticker = 0;
-    prev = gettime();
-  }
-
-  /* Frame Synchronization */
-  if (gc_pal)
+	if (ConfigRequested)
 	{
-    /* PAL 50Hz: use timer */
-    now = gettime();
-    while (diff_usec(prev, now) < 16666) now = gettime();
-    prev = now;
-  }
-  else
-  {
-    while (frameticker == 0) usleep(50);
-    frameticker--;
-  }
+		AUDIO_StopDMA ();
+        IsPlaying = 0;
+		MainMenu ();
+        ConfigRequested = 0;
+	}
 }
