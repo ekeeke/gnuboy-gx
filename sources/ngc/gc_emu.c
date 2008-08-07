@@ -34,38 +34,37 @@ void emu_step()
 	cpu_emulate(cpu.lcdc);
 }
 
-/* This mess needs to be moved to another module; it's just here to
- * make things work in the mean time. */
-extern int frameticker;
 extern int new_game;
+extern int frameticker;
+extern long long gettime();
+extern long long prev;
 
 void emu_run()
-{	
-	for (;;)
+{
+  for (;;)
 	{
 		vid_begin();
-	    lcd_begin();
-	    frameticker = new_game = 0;
+		lcd_begin();
+		new_game = 0;
+    frameticker = 0;
+    prev = gettime();
 
 		for (;;)
-	    {
+		{
 			cpu_emulate(2280);
 			while (R_LY > 0 && R_LY < 144) emu_step();
 			vid_end();
 			rtc_tick();
 			sound_mix();
-			
-			if (frameticker > 5) frameticker = 1;
-			while (frameticker == 0) usleep(50);
-			frameticker--;
-			
-			ev_poll();
+			pcm_submit();
+
+      ev_poll();
 			if (new_game) break;
 			
 			vid_begin();
 			if (!(R_LCDC & 0x80))cpu_emulate(32832);
 			while (R_LY > 0) emu_step();/* wait for next frame */      
-	    }
     }
+  }
 }
 
