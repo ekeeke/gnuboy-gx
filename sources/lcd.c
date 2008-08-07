@@ -52,8 +52,8 @@ static int sprsort = 1;
 static int sprdebug;
 static int paletteindex;
 #else
-int scale = 1;
-int density = 1;
+int scale = 3;
+int density = 3;
 u8 rgb332 = 0;
 u8 usefilter = 1;
 u8 filterdmg = 0;

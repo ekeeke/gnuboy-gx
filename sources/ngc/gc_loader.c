@@ -15,6 +15,7 @@
 #include <string.h>
 
 extern char *gbrom;
+extern void file_autoload(u8 type);
 
 static int mbc_table[256] =
 {
@@ -75,7 +76,7 @@ static int ramsize_table[256] =
 	4 /* FIXME - what value should this be?! */
 };
 
-s8 autoload = -1;  /* SRAM Auto-load feature */
+u8 autoload = 0;  /* SRAM Auto-load feature */
 u8 forcedmg = 0;  /* Force Mono Gameboy  */
 u8 gbamode  = 1;  /* enables GBA-only features present in some GBC games */
 int memfill = 0;
@@ -97,7 +98,7 @@ int rom_load()
 {
 	byte c, *data, *header;
 	
-	data = header = (byte *)gbrom;
+	data = header = gbrom;
 	
 	memcpy(rom.name, header+0x0134, 16);
 	if (rom.name[14] & 0x80) rom.name[14] = 0;
@@ -127,12 +128,15 @@ int rom_load()
 	hw.cgb = ((c == 0x80) || (c == 0xc0)) && !forcedmg;
 	hw.gba = (hw.cgb && gbamode);
 
+    /* autoload SRAM */
+	if (mbc.batt && autoload) file_autoload(1);
+
 	return 1;
 }
 
 void loader_unload()
 {
-  if (ram.sbank) free(ram.sbank);
+	if (ram.sbank) free(ram.sbank);
 	rom.bank = NULL;
 	ram.sbank = NULL;
 	mbc.type = mbc.romsize = mbc.ramsize = mbc.batt = 0;
@@ -141,7 +145,7 @@ void loader_unload()
 void sram_load(u8 *srambuf)
 {
 	int pos = 0;
-	unsigned long inbytes, outbytes;
+    unsigned long inbytes, outbytes;
 	unsigned char *sram;
 	
 	/* get compressed state size */
@@ -152,13 +156,13 @@ void sram_load(u8 *srambuf)
 	if (mbc.batt) outbytes += 8192*mbc.ramsize;
 	if (rtc.batt) outbytes += 32;
 	sram = (unsigned char *)malloc(outbytes);
-	uncompress ((Bytef *) &sram[0], &outbytes, (Bytef *) &srambuf[sizeof(inbytes)], inbytes);
+    uncompress ((char *) &sram[0], &outbytes, (char *) &srambuf[sizeof(inbytes)], inbytes);
 
 	if (mbc.batt)
 	{
 		memcpy(ram.sbank, sram, 8192*mbc.ramsize);
 		pos += (8192*mbc.ramsize);
-	}
+    }
 
 	/* get RTC if it exists */
 	if (rtc.batt) rtc_load_internal(&sram[pos]);
@@ -170,19 +174,19 @@ void sram_load(u8 *srambuf)
 int sram_save(u8 *srambuf)
 {
 	int pos = 0;
-	unsigned long inbytes, outbytes;
+    unsigned long inbytes, outbytes;
 	unsigned char *sram;
-
+	
 	inbytes = 0;
 	if (mbc.batt) inbytes += 8192*mbc.ramsize;
 	if (rtc.batt) inbytes += 32;
-	sram = (unsigned char *)malloc(inbytes);
+    sram = (unsigned char *)malloc(inbytes);
 	
 	if (mbc.batt)
 	{
 		memcpy(sram, ram.sbank, 8192*mbc.ramsize);
 		pos += (8192*mbc.ramsize);
-	}
+    }
 
 	/* include RTC if it exists */
 	if (rtc.batt)
@@ -193,7 +197,7 @@ int sram_save(u8 *srambuf)
 
 	/* compress state file */
 	outbytes = 0x30000;
-	compress2 ((Bytef *) &srambuf[sizeof(outbytes)], &outbytes, (Bytef *) &sram[0], inbytes, 9);
+    compress2 ((char *) &srambuf[sizeof(outbytes)], &outbytes, (char *) &sram[0], inbytes, 9);
 	free(sram);
 
 	/* write compressed size in the first 32 bits for decompression */

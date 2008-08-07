@@ -1,44 +1,46 @@
 #---------------------------------------------------------------------------------
+# Generic makefile for Gamecube projects
+#
+# Tab stops set to 4
+#	|	|	|	|
+#	0	1	2	3
+#---------------------------------------------------------------------------------
 # Clear the implicit built in rules
 #---------------------------------------------------------------------------------
 .SUFFIXES:
-#---------------------------------------------------------------------------------
-ifeq ($(strip $(DEVKITPPC)),)
-$(error "Please set DEVKITPPC in your environment. export DEVKITPPC=<path to>devkitPPC)
-endif
-
-include $(DEVKITPPC)/wii_rules
-
 #---------------------------------------------------------------------------------
 # TARGET is the name of the output
 # BUILD is the directory where object files & intermediate files will be placed
 # SOURCES is a list of directories containing source code
 # INCLUDES is a list of directories containing extra header files
 #---------------------------------------------------------------------------------
-TARGET		:=	gnuboy_wii
-BUILD		:=	build_wii
+TARGET		:=	gnuboyGX
+BUILD		:=	build
 SOURCES		:=	sources sources/ngc sources/ngc/gui
 INCLUDES	:=	sources sources/ngc sources/ngc/gui
 
 #---------------------------------------------------------------------------------
 # options for code generation
 #---------------------------------------------------------------------------------
+MACHDEP	= -DGEKKO -mcpu=750 -meabi -mhard-float 
+CFLAGS  = -g -O2 -Wall $(MACHDEP) $(INCLUDE) 
 
-CFLAGS	= -g -O2 -mrvl -Wall $(MACHDEP) -fno-strict-aliasing $(INCLUDE) -DWORDS_BIGENDIAN -DNGC="1" -DHW_RVL
-CXXFLAGS	=	$(CFLAGS)
+LDFLAGS	=	$(MACHDEP) -mogc -Wl,-Map,$(notdir $@).map -Wl,--cref
 
-LDFLAGS	=	-g $(MACHDEP) -Wl,-Map,$(notdir $@).map
+PREFIX	:=	powerpc-gekko-
 
-#---------------------------------------------------------------------------------
-# any extra libraries we wish to link with the project
-#---------------------------------------------------------------------------------
-LIBS	:=	-lfat -lwiiuse -lbte -logc -lm -lz
+#export PATH:=/c/devkitPPC_r11/bin:/bin
 
 #---------------------------------------------------------------------------------
 # list of directories containing libraries, this must be the top level containing
 # include and lib
 #---------------------------------------------------------------------------------
-LIBDIRS	:=
+LIBDIRS := /c/devkitPro/devkitPPC
+
+#---------------------------------------------------------------------------------
+# any extra libraries we wish to link with
+#---------------------------------------------------------------------------------
+LIBS	:=	-logc -lm -lz -logcsys -lsdcard
 
 #---------------------------------------------------------------------------------
 # no real need to edit anything past this point unless you need to add additional
@@ -46,14 +48,13 @@ LIBDIRS	:=
 #---------------------------------------------------------------------------------
 ifneq ($(BUILD),$(notdir $(CURDIR)))
 #---------------------------------------------------------------------------------
-
 export OUTPUT	:=	$(CURDIR)/$(TARGET)
+export VPATH	:=	$(foreach dir,$(SOURCES),$(CURDIR)/$(dir))
 
-export VPATH	:=	$(foreach dir,$(SOURCES),$(CURDIR)/$(dir)) \
-					$(foreach dir,$(DATA),$(CURDIR)/$(dir))
-
-export DEPSDIR	:=	$(CURDIR)/$(BUILD)
-
+export CC		:=	$(PREFIX)gcc
+export CXX		:=	$(PREFIX)g++
+export AR		:=	$(PREFIX)ar
+export OBJCOPY	:=	$(PREFIX)objcopy
 #---------------------------------------------------------------------------------
 # automatically build a list of object files for our project
 #---------------------------------------------------------------------------------
@@ -61,8 +62,6 @@ CFILES		:=	$(foreach dir,$(SOURCES),$(notdir $(wildcard $(dir)/*.c)))
 CPPFILES	:=	$(foreach dir,$(SOURCES),$(notdir $(wildcard $(dir)/*.cpp)))
 sFILES		:=	$(foreach dir,$(SOURCES),$(notdir $(wildcard $(dir)/*.s)))
 SFILES		:=	$(foreach dir,$(SOURCES),$(notdir $(wildcard $(dir)/*.S)))
-BINFILES	:=	$(foreach dir,$(DATA),$(notdir $(wildcard $(dir)/*.*)))
-
 #---------------------------------------------------------------------------------
 # use CXX for linking C++ projects, CC for standard C
 #---------------------------------------------------------------------------------
@@ -72,36 +71,32 @@ else
 	export LD	:=	$(CXX)
 endif
 
-export OFILES	:=	$(addsuffix .o,$(BINFILES)) \
-					$(CPPFILES:.cpp=.o) $(CFILES:.c=.o) \
-					$(sFILES:.s=.o) $(SFILES:.S=.o)
+export OFILES	:= $(CPPFILES:.cpp=.o) $(CFILES:.c=.o) $(sFILES:.s=.o) $(SFILES:.S=.o)
 
 #---------------------------------------------------------------------------------
 # build a list of include paths
 #---------------------------------------------------------------------------------
 export INCLUDE	:=	$(foreach dir,$(INCLUDES),-I$(CURDIR)/$(dir)) \
 					$(foreach dir,$(LIBDIRS),-I$(dir)/include) \
-					-I$(CURDIR)/$(BUILD) \
-					-I$(LIBOGC_INC)
+					-I$(CURDIR)/$(BUILD)
 
 #---------------------------------------------------------------------------------
 # build a list of library paths
 #---------------------------------------------------------------------------------
-export LIBPATHS	:=	$(foreach dir,$(LIBDIRS),-L$(dir)/lib) \
-					-L$(LIBOGC_LIB)
+export LIBPATHS	:=	$(foreach dir,$(LIBDIRS),-L$(dir)/lib)
 
 export OUTPUT	:=	$(CURDIR)/$(TARGET)
 .PHONY: $(BUILD) clean
 
 #---------------------------------------------------------------------------------
 $(BUILD):
-	@[ -d $@ ] || mkdir -p $@
+	@[ -d $@ ] || mkdir $@
 	@make --no-print-directory -C $(BUILD) -f $(CURDIR)/Makefile
 
 #---------------------------------------------------------------------------------
 clean:
 	@echo clean ...
-	@rm -fr $(BUILD) $(OUTPUT).elf $(OUTPUT).dol
+	@rm -fr $(BUILD) *.elf
 
 #---------------------------------------------------------------------------------
 run:
@@ -121,19 +116,56 @@ DEPENDS	:=	$(OFILES:.o=.d)
 # main targets
 #---------------------------------------------------------------------------------
 $(OUTPUT).dol: $(OUTPUT).elf
-$(OUTPUT).elf: $(OFILES)
+	@echo output ... $(notdir $@)
+	@$(OBJCOPY)  -O binary $< $@
 
 #---------------------------------------------------------------------------------
-# This rule links in binary data with the .jpg extension
+$(OUTPUT).elf: $(OFILES)
+	@echo linking ... $(notdir $@)
+	@$(LD)  $^ $(LDFLAGS) $(LIBPATHS) $(LIBS) -o $@
+
 #---------------------------------------------------------------------------------
-%.jpg.o	:	%.jpg
+# Compile Targets for C/C++
 #---------------------------------------------------------------------------------
-	@echo $(notdir $<)
-	$(bin2o)
+
+#---------------------------------------------------------------------------------
+%.o : %.cpp
+	@echo Compiling ... $(notdir $<)
+	@$(CXX) -MMD $(CFLAGS) -o $@ -c $<
+
+#---------------------------------------------------------------------------------
+%.o : %.c
+	@echo Compiling ... $(notdir $<)
+	@$(CC) -MMD $(CFLAGS) -o $@ -c $<
+
+#---------------------------------------------------------------------------------
+%.o : %.S
+	@echo Compiling ... $(notdir $<)
+	@$(CC) -MMD $(CFLAGS) -D_LANGUAGE_ASSEMBLY -c $< -o $@
+
+#---------------------------------------------------------------------------------
+%.o : %.s
+	@echo Compiling ... $(notdir $<)
+	@$(CC) -MMD $(CFLAGS) -D_LANGUAGE_ASSEMBLY -c $< -o $@
+
+#---------------------------------------------------------------------------------
+# canned command sequence for binary data
+#---------------------------------------------------------------------------------
+define bin2o
+	cp $(<) $(*).tmp
+	$(OBJCOPY) -I binary -O elf32-powerpc -B powerpc \
+	--rename-section .data=.rodata,readonly,data,contents,alloc \
+	--redefine-sym _binary_$*_tmp_start=$*\
+	--redefine-sym _binary_$*_tmp_end=$*_end\
+	--redefine-sym _binary_$*_tmp_size=$*_size\
+	$(*).tmp $(@)
+	echo "extern const u8" $(*)"[];" > $(*).h
+	echo "extern const u32" $(*)_size[]";" >> $(*).h
+	rm $(*).tmp
+endef
 
 -include $(DEPENDS)
 
 #---------------------------------------------------------------------------------
 endif
 #---------------------------------------------------------------------------------
-

@@ -98,7 +98,7 @@ void rtc_tick()
 	}
 }
 
-#ifndef NGC
+#ifndef NGC // TO DO
 void rtc_save_internal(FILE *f)
 {
 	fprintf(f, "%d %d %d %02d %02d %02d %02d\n%d\n",
@@ -148,8 +148,8 @@ void rtc_load_internal(u8 *buffer)
 {
 	int rt = 0;
 	struct timespec tp;
-
-	memcpy(&(rtc.carry), buffer, 4);
+	
+    memcpy(&(rtc.carry), buffer, 4);
 	memcpy(&(rtc.stop), buffer+4, 4);
 	memcpy(&(rtc.d), buffer+8, 4);
 	memcpy(&(rtc.h), buffer+12, 4);
@@ -158,7 +158,7 @@ void rtc_load_internal(u8 *buffer)
 	memcpy(&(rtc.t), buffer+24, 4);
 	memcpy(&(rt), buffer+28, 4);
 
-	while (rtc.t >= 60) rtc.t -= 60;
+    while (rtc.t >= 60) rtc.t -= 60;
 	while (rtc.s >= 60) rtc.s -= 60;
 	while (rtc.m >= 60) rtc.m -= 60;
 	while (rtc.h >= 24) rtc.h -= 24;

@@ -1,18 +1,5 @@
 GNUBOYGX CHANGELOG
 
-15/07/2008:
-. added Wii mode support
-. added wiimote/nunchuk/classic controller support (WII version)
-. added libfat support 
-. added automatic SRAM & FreezeState option
-. added 50hz (576i) TV mode support (autodetected)
-. added Progressive (480p) TV mode support (autodetected)
-. added various display aspect ratio support (ORIGINAL, SCALED, STRECTH)
-
-10/10/2007:
-. improved sound rendering
-
-
 20/07/2007:
 
 [GB/GBC]

@@ -1,8 +1,22 @@
-/*
- * Gnuboy EMU Support for the Nintendo Gamecube
- * Original Code by Laguna & Gilgamesh - Modified by Eke-Eke 2007
- * This file may be distributed under the terms of the GNU GPL.
- */
+/****************************************************************************
+ *  Genesis Plus 1.2a
+ *
+ *  Copyright (C) 1998, 1999, 2000, 2001, 2002, 2003  Charles Mac Donald
+ *
+ *  This program is free software; you can redistribute it and/or modify
+ *  it under the terms of the GNU General Public License as published by
+ *  the Free Software Foundation; either version 2 of the License, or
+ *  (at your option) any later version.
+ *
+ *  This program is distributed in the hope that it will be useful,
+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ *  GNU General Public License for more details.
+ *
+ *  You should have received a copy of the GNU General Public License
+ *  along with this program; if not, write to the Free Software
+ *  Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+ ***************************************************************************/
 
 #include "defs.h"
 #include "font.h"
@@ -23,7 +37,7 @@ int dkunpack ()
   inbytes = dkpro_COMPRESSED;
   outbytes = dkpro_RAW;
   dkproraw = malloc (dkpro_RAW + 16);
-  res = uncompress ((Bytef *) dkproraw, &outbytes, (Bytef *) &dkpro[0], inbytes);
+  res = uncompress ((char *) dkproraw, &outbytes, (char *) &dkpro[0], inbytes);
   if (res == Z_OK) return 1;
   free (dkproraw);
   return 0;
@@ -35,6 +49,8 @@ int dkunpack ()
  *
  * In other words, play nice and give credit where it's due.
  */
+extern u8 norm_blit;
+
 void legal ()
 {
   int ypos = 64;
@@ -42,6 +58,7 @@ void legal ()
   whichfb ^= 1;
   VIDEO_ClearFrameBuffer(&TVNtsc480IntDf, xfb[whichfb], COLOR_WHITE);
   back_framewidth = 640;
+  norm_blit = 0;
 
   WriteCentre (ypos, "Gnuboy Gameboy/Gameboy Color Emulator (v1.04)");
   ypos += fheight;
@@ -81,6 +98,7 @@ void legal ()
   else WriteCentre (ypos, "Developed with DevkitPPC and libOGC");
 
   WriteCentre (ypos, "Press A to continue");
+  norm_blit = 1;
   SetScreen ();
   WaitButtonA ();
 }

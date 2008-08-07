@@ -1,4 +1,21 @@
-/****************************************************************************
+/******************************************************************************
+ *  Gnuboy Gamecube port
+ *  Original code by Softdev (@tehskeen.com)
+ *
+ *   This program is free software; you can redistribute it and/or modify
+ *   it under the terms of the GNU General Public License as published by
+ *   the Free Software Foundation; either version 2 of the License, or
+ *   (at your option) any later version.
+ *
+ *   This program is distributed in the hope that it will be useful,
+ *   but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ *   GNU General Public License for more details.
+ *
+ *   You should have received a copy of the GNU General Public License
+ *   along with this program; if not, write to the Free Software
+ *   Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+ *
  * DVD ISO9660/Joliet Parsing
  *
  * This is not intended as a complete guide to ISO9660.
@@ -179,7 +196,7 @@ static int getentry (int entrycount)
 }
 
 /****************************************************************************
- * parseDVDdirectory
+ * parsedirectory
  *
  * This function will parse the directory tree.
  * It relies on rootdir and rootdirlength being pre-populated by a call to
@@ -187,7 +204,7 @@ static int getentry (int entrycount)
  *
  * The return value is number of files collected, or 0 on failure.
  ****************************************************************************/
-int parseDVDdirectory ()
+int parsedirectory ()
 {
 	int pdlength;
 	u64 pdoffset;
