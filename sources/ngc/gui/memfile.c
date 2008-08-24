@@ -4,11 +4,13 @@
  *
  ***************************************************************************/
 #include "defs.h"
-#include "dvd.h"
-#include "font.h"
 #include "mem.h"
-#include "saveicon.h"	/*** Nice little icon - thanks brakken! ***/
 #include "config.h"
+#include "font.h"
+#include "saveicon.h"
+#ifndef HW_RVL
+#include "dvd.h"
+#endif
 
 #include <fat.h>
 #include <sys/dir.h>
@@ -163,7 +165,9 @@ int MountTheCard (u8 slot)
   int tries = 0;
   int CardError;
   *(unsigned long *) (0xcc006800) |= 1 << 13;		/*** Disable Encryption ***/
+#ifndef HW_RVL
   uselessinquiry ();
+#endif
   while (tries < 10)
 	{
     VIDEO_WaitVSync ();

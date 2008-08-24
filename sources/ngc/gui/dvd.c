@@ -15,38 +15,41 @@
  * To keep libOGC stable, make sure you call DVD_Init before using
  * these functions.
  ***************************************************************************/
-
 #include "defs.h"
-
-/** DVD I/O Address base **/
-#if defined(HW_RVL)
-static vu32* const dvd = (u32*)0xCD006000;
-#elif defined(HW_DOL)
-static vu32* const dvd = (u32*)0xCC006000;
+#ifdef HW_RVL
+#include "di/di.h"
 #endif
 
-static unsigned char *inquiry=(unsigned char *)0x80000004;
 
-/** Due to lack of memory, we'll use this little 2k keyhole for all DVD operations **/
-unsigned char DVDreadbuffer[2048] ATTRIBUTE_ALIGN (32);
+#ifndef HW_RVL
+static u64 DvdMaxOffset = 0x57057C00;                 /* 1.4 GB max. */
+static vu32* const dvd = (u32*)0xCC006000;            /* DVD I/O Address base */
+static u8 *inquiry=(unsigned char *)0x80000004;       /* pointer to drive ID */
+#else
+static u64 DvdMaxOffset = 0x118244F00LL;              /* 4.7 GB max. */
+#endif
 
-u64 DvdMaxOffset = 0x57057C00;
+static u8 DVDreadbuffer[2048] ATTRIBUTE_ALIGN (32);   /* data buffer for all DVD operations */
+
+
 
 /***************************************************************************
  * dvd_read
  *
  * Read DVD disc sectors
  ***************************************************************************/
+u32 dvd_read (void *dst, u32 len, u64 offset)
+{
+  /*** We only allow 2k reads **/
+  if (len > 2048) return 0;
 
-int dvd_read (void *dst, unsigned int len, u64 offset)
+  /*** Let's not read past end of DVD ***/
+  if(offset < DvdMaxOffset)
 {
   unsigned char *buffer = (unsigned char *) (unsigned int) DVDreadbuffer;
-  
-  if (len > 2048) return 1; /*** We only allow 2k reads **/
   DCInvalidateRange((void *)buffer, len);
 
-  if(offset < DvdMaxOffset)
-  {
+#ifndef HW_RVL
     dvd[0] = 0x2E;
     dvd[1] = 0;
     dvd[2] = 0xA8000000;
@@ -54,17 +57,54 @@ int dvd_read (void *dst, unsigned int len, u64 offset)
     dvd[4] = len;
     dvd[5] = (u32) buffer;
     dvd[6] = len;
-    dvd[7] = 3; /*** Enable reading with DMA ***/
+    dvd[7] = 3; 
+
+    /*** Enable reading with DMA ***/
     while (dvd[7] & 1);
-    memcpy (dst, buffer, len);
-  }
-  else return 1; // Let's not read past end of DVD
    
-  if (dvd[0] & 0x4) return 0; /* Ensure it has completed */
+    /*** Ensure it has completed ***/
+    if (dvd[0] & 0x4) return 0;
   
+#else
+    if (DI_ReadDVD(buffer, len >> 11, (u32)(offset >> 11))) return 0;
+#endif
+    memcpy (dst, buffer, len);
   return 1;
 }
 
+  return 0; 
+}
+
+/****************************************************************************
+ * dvd_motor_off
+ *
+ * Stop the DVD Motor
+ *
+ * This can be used to prevent the Disc from spinning during playtime
+ ****************************************************************************/
+void dvd_motor_off( )
+{
+#ifndef HW_RVL
+  dvd[0] = 0x2e;
+	dvd[1] = 0;
+	dvd[2] = 0xe3000000;
+	dvd[3] = 0;
+	dvd[4] = 0;
+	dvd[5] = 0;
+	dvd[6] = 0;
+	dvd[7] = 1; // Do immediate
+	while (dvd[7] & 1);
+
+	/*** PSO Stops blackscreen at reload ***/
+	dvd[0] = 0x14;
+	dvd[1] = 0;
+
+#else
+  DI_StopMotor();
+#endif
+}
+
+#ifndef HW_RVL
 /****************************************************************************
  * uselessinquiry
  *
@@ -86,31 +126,6 @@ void uselessinquiry ()
   dvd[7] = 1;
 
   while (dvd[7] & 1);
-}
-
-/****************************************************************************
- * dvd_motor_off
- *
- * Stop the DVD Motor
- *
- * This can be used to prevent the Disc from spinning during playtime
- ****************************************************************************/
-void dvd_motor_off( )
-{
-
-  dvd[0] = 0x2e;
-	dvd[1] = 0;
-	dvd[2] = 0xe3000000;
-	dvd[3] = 0;
-	dvd[4] = 0;
-	dvd[5] = 0;
-	dvd[6] = 0;
-	dvd[7] = 1; // Do immediate
-	while (dvd[7] & 1);
-
-	/*** PSO Stops blackscreen at reload ***/
-	dvd[0] = 0x14;
-	dvd[1] = 0;
 }
 
 /****************************************************************************
@@ -145,3 +160,4 @@ void dvd_drive_detect()
     DvdMaxOffset = 0x118244F00LL;
   }
 }
+#endif

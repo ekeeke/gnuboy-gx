@@ -15,8 +15,12 @@
 #include "pcm.h"
 #include "fb.h"
 #include "hw.h"
-#include "dvd.h"
 #include "config.h"
+#ifndef HW_RVL
+#include "dvd.h"
+#else
+#include "di/di.h"
+#endif
 
 /* 576 lines interlaced (PAL 50Hz, scaled) */
 GXRModeObj TV50hz_576i = 
@@ -246,6 +250,11 @@ extern void dvd_drive_detect();
 u8 gc_pal;
 void InitGCVideo ()
 {
+#ifdef HW_RVL
+	/* initialize Wii DVD interface first */
+  DI_Init();
+#endif
+
   /*
    * Before doing anything else under libogc,
    * Call VIDEO_Init
