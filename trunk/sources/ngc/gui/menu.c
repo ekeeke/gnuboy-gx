@@ -23,6 +23,7 @@
  ***************************************************************************/
 #ifdef HW_RVL
 #include <wiiuse/wpad.h>
+#include "di/di.h"
 #endif
 
 #include "defs.h"
@@ -374,57 +375,6 @@ void RomInfo ()
   WaitButtonA ();
 }
 
-
-/****************************************************************************
- * Load game Menu
- *
- ****************************************************************************/
-extern int OpenSD ();
-
-#ifndef HW_RVL
-extern void OpenDVD ();
-static u8 load_menu = 0;
-void GameMenu ()
-{
-  int quit = 0;
-  int ret;
-  int loadcount = 3;
-  char loadmenu[3][20] =
-  {
-    {"Load from DVD"},
-    {"Load from SDCARD"},
-    {"Return to previous"}
-  };
-
-  menu = load_menu;
-
-  while (quit == 0)
-  {
-    ret = DoMenu(&loadmenu[0], loadcount);
-
-    switch (ret)
-    {
-      case -1:
-      case  2:
-        quit = 1;
-        break;
-      
-      case 0:
-        OpenDVD ();   // Bootable DVD
-        quit = 1;
-        break;
-      
-      case 1:
-        OpenSD (); // SDCARD
-        quit = 1;
-        break;
-    }
-  }
-  
-  load_menu = menu;
-}
-#endif
-
 /****************************************************************************
  * Load/Save Menu
  *
@@ -516,7 +466,6 @@ int FileMenu ()
       case -1:
       case  2:
         quit = 1;
-        menu = prevmenu;
         break;
 
       case 0:
@@ -526,11 +475,66 @@ int FileMenu ()
     }
   }
 
+  menu = prevmenu;
   return 0;
 }
 
+
 /****************************************************************************
- * Main menu
+ * Load Rom menu
+ *
+ ****************************************************************************/
+extern int OpenSD ();
+extern int OpenDVD();
+extern int OpenHistory();
+static u8 load_menu = 0;
+
+void loadmenu ()
+{
+	int ret;
+	int quit = 0;
+  int count = 4;
+  char item[4][20] = {
+		{"Load Recent"},
+		{"Load from SDCARD"},
+		{"Load from DVD"},
+    {"Stop DVD Motor"}
+	};
+
+	menu = load_menu;
+	
+	while (quit == 0)
+	{
+		ret = DoMenu (&item[0], count);
+		switch (ret)
+		{
+			case -1: /*** Button B ***/
+				quit = 1;
+				break;
+
+			case 0: /*** Load Recent ***/
+				quit = OpenHistory();
+				break;
+
+			case 1:  /*** Load from SCDARD ***/
+				quit = OpenSD();
+				break;
+
+      case 2:	 /*** Load from DVD ***/
+  			quit = OpenDVD();
+        break;
+  
+      case 3:  /*** Stop DVD Disc ***/
+        dvd_motor_off();
+				break;
+    }
+	}
+
+	load_menu = menu;
+}
+
+/****************************************************************************
+ * Main Menu
  *
  ****************************************************************************/
 extern void memfile_autosave();
@@ -542,16 +546,11 @@ extern GXRModeObj *vmode;
 
 void MainMenu ()
 {
+	s8 ret;
+	u8 quit = 0;
   menu = 0;
-  int ret;
-  int quit = 0;
-#ifdef HW_RVL
-  int count = 8;
-  char items[8][20] =
-#else
-  int count = 9;
-  char items[9][20] =
-#endif
+	u8 count = 8;
+	char items[8][20] =
   {
     {"Play Game"},
     {"Game Infos"},
@@ -559,14 +558,8 @@ void MainMenu ()
     {"Load New Game"},
     {"File Management"},
     {"Emulator Options"},
-#ifdef HW_RVL
     {"Return to Loader"},
-    {"System Menu"}
-#else
-    {"Stop DVD Motor"},
-    {"SD/PSO Loader"},
     {"System Reboot"}
-#endif
   };
 
   /* 50 hz TV mode */
@@ -590,67 +583,51 @@ void MainMenu ()
         quit = 1;
         break;
 
-      case 1: /* Show ROM header infos */
+      case 1:
         RomInfo();
         break;
 
-      case 2: /* Reset emulation */
+      case 2:
         emu_reset();
         quit = 1;
         break;
  
-      case 3: /* Load a new game */
-#ifdef HW_RVL
-        OpenSD();
-#else
-        GameMenu ();
-#endif
+      case 3:
+        loadmenu ();
         menu = 0;
         break;
 
-      case 4: /* File manager */
+      case 4:
         quit = FileMenu ();
         break;
 
-      case 5: /* Options menu */
+      case 5:
         OptionMenu();
         break;
 
+			case 6:
+        memfile_autosave();
+        VIDEO_ClearFrameBuffer(vmode, xfb[whichfb], COLOR_BLACK);
+        VIDEO_Flush();
+        VIDEO_WaitVSync();
 #ifdef HW_RVL
-			case 6:  /*** TP Reload ***/
-        memfile_autosave();
-        VIDEO_ClearFrameBuffer(vmode, xfb[whichfb], COLOR_BLACK);
-        VIDEO_Flush();
-        VIDEO_WaitVSync();
-        exit(0);
-		    break;
-
-			case 7:  /*** Return to Wii System Menu ***/
-        memfile_autosave();
-        VIDEO_ClearFrameBuffer(vmode, xfb[whichfb], COLOR_BLACK);
-        VIDEO_Flush();
-        VIDEO_WaitVSync();
-				SYS_ResetSystem(SYS_RETURNTOMENU, 0, 0);
-		    break;
-#else
-			case 6:  /*** Stop DVD Motor ***/
-        ShowAction("Stopping DVD Motor ...");
-        dvd_motor_off();
-        break;
-
-			case 7:  /*** SD/PSO Reload ***/
-        memfile_autosave();
-        VIDEO_ClearFrameBuffer(vmode, xfb[whichfb], COLOR_BLACK);
-        VIDEO_Flush();
-        VIDEO_WaitVSync();
-        exit(0);
-		    break;
-	
-			case 8:  /*** Reboot Gamecube ***/
-        memfile_autosave();
-				SYS_ResetSystem(SYS_HOTRESET,0,0);
-		    break;
+        DI_Close();
 #endif
+        exit(0);
+		    break;
+
+			case 7:
+        memfile_autosave();
+        VIDEO_ClearFrameBuffer(vmode, xfb[whichfb], COLOR_BLACK);
+        VIDEO_Flush();
+        VIDEO_WaitVSync();
+#ifdef HW_RVL
+        DI_Close();
+				SYS_ResetSystem(SYS_RETURNTOMENU, 0, 0);
+#else
+				SYS_ResetSystem(SYS_HOTRESET,0,0);
+#endif
+		    break;
     }
   }
   
