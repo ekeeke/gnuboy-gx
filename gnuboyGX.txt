@@ -62,8 +62,9 @@ in /apps/gnuboy for example. Icon.png and meta.xml should also be placed in the 
 ROMS can be loaded from a SDCARD, either through a SD-adapter in MCARD slot (Gamecube version only), or through the 
 native Wii SD slot (WIi version only). ROMS must be copied on your SDCARD in the following directory: /gnuboy/roms
 
-ROMS can also be loaded from a ISO9660 DVD (currently, ONLY the Gamecube version support DVD loading) and you obviously
-need a modchip. The maximal readable size is 1.35GB on Gamecube and 4.7GB on Wii (in GC compatible mode).
+ROMS can also be loaded from a ISO9660 DVD. A modchip is required in gameCube mode. On teh Wii, no modchip is required but you will
+need to install the DI Stub before you can access DVD-/+R. More infos on HackMii: http://hackmii.com/2008/08/libdi-and-the-dvdx-installer/
+The maximal readable size is 1.35GB on Gamecube and 4.7GB on Wii (in GC compatible mode).
 
 
 IMPORTANT: When putting roms either on DVD or SDCARD, it is recommended to use subdirectories as there is 
@@ -84,8 +85,8 @@ IMPORTANT: When putting roms either on DVD or SDCARD, it is recommended to use s
 ** WIIMOTE/NUNCHUK/CLASSIC **
 
 - HOME Button let you come back to the menu when playing a game
-- Gameboy Button A is Button 2 (WIIMOTE only), A (WIIMOTE+NUNCHUK) or B (CLASSIC)
-- Gamenoy Button B is Button 1 (WIIMOTE only), B (WIIMOTE+NUNCHUK) or A (CLASSIC)
+- Gameboy Button A is Button 2 (WIIMOTE only), A (WIIMOTE+NUNCHUK) or A (CLASSIC)
+- Gamenoy Button B is Button 1 (WIIMOTE only), B (WIIMOTE+NUNCHUK) or B (CLASSIC)
 - Gameboy START Button is Button PLUS
 - Gameboy SELECT Button is Button MINUS
 
@@ -110,14 +111,15 @@ Press B (or 2) to go back from a sub-menu.
   Load New Game:
   -----------------------------------------------------------------------------------
 
-  . Load from DVD: DVD must be ISO9660 (GC mode only)
-  . Load from Front SD: Wii mode only
-  . Load from SDCARD (SLOTA or SLOTB): You have to use a SD adapter in a MC Slot
-  
-  When using SDCARD, roms must be initially placed in the /gnuboy/roms/ subdirectory
-		  
-  In both cases, the maximum number of files per directory is 1000
-  It is recommended to use subdirectories.
+  . Load Recent let you browse a ROM history list with the ten last opened ROM files.
+ This is only available for ROM files previously loaded from SDCARD.
+
+  . Load from SDCARD  let you browse the SDCARD. 
+
+  . Load from DVD let you browse the DVD. 
+
+  . Stop DVD Motor will stop the DVD motor and the disc from spinning during playtime
+
   Pressing B will make you going up one directory while navigating.
 
 
@@ -166,48 +168,32 @@ Press B (or 2) to go back from a sub-menu.
    2/ when using SDCARD, the directory /gnuboy/saves is automatically created
 
 
-The following options differ between WIi & GC version:
-
-*** GC version ***
-
-  Stop DVD Motor:
-  -----------------------------------------------------------------------------------
-   Stop the the disc from spinning during playtime (GC mode only)
-  
-
-  SD/PSO RELOAD:
-  -----------------------------------------------------------------------------------
-     go back to SD/PSO Loader
-
-  SYSTEM REBOOT
-  -----------------------------------------------------------------------------------
-     reboot the console.
-
-
-*** Wii version ***
-
   Return to Loader:
   -----------------------------------------------------------------------------------
-     go back to TP Loader or Homebrew Channel
+     go back to SDLOAD/PSOLOAD (Gamecube) or TP Loader/Homebrew Channel (Wii)
 
   System menu
   -----------------------------------------------------------------------------------
-     return to Wii System menu.
+     reset the console (Gamecube) or return to System menu (Wii)
 
 
 
 -=[ DEV NOTES ]=-
 
-According to the GNU status of this project, the sourcecode MUST be included in any binary releases you made.
-To recompile the sourcecode, you will need to have installed:
- . DevkitPPC environment
- . libOGC last sources
+According to the GNU status of this project, the source code MUST be made available to anyone as soon
+as you have modified it and released a binary. 
+To recompile the source code, you will need to be familiar with development environment setup.
+If you don't, you might look at wiibrew or tehskeen's forum. 
 
-The sourcecode is maintaned under SVN and can be obtained from here: https://gnuboy-gx.bountysource.com/
+First, you will have to download and install the following tools/libraries: 
+1.	the last version of Devkitpro and DevkitPPC. Windows user should directly run the AutoInstaller version 
+2.	the CVS version of libogc. 
+3.	the last version of libfat.
+You can also get and compile the current source from CVS repository 
+4.	the last libDI source code. 
 
-If you have no idea on how to compile DOLs , please refer to this thread:
-http://www.tehskeen.com/forums/showthread.php?t=2968.
-
+Once you are done, grab the current genuboy-gx source code from SVN (http://code.google.com/p/gnuboy-gx/source/checkout)
+then launch compile_all.bat from msys (installed with devkitpro) 
 
 
 -=[ CREDITS ]=-
