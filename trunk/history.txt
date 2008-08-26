@@ -1,7 +1,7 @@
 GNUBOYGX CHANGELOG
 
-Current:
---------
+
+26/08/2008:
 .fixed Classic Controller buttons default map
 .added automatic alphabetical file sorting (Marty Disibio)
 .added ROM History for faster ROM access (Marty Disibio)
@@ -18,7 +18,6 @@ Current:
 
 10/10/2007:
 . improved sound rendering
-
 
 20/07/2007:
 
