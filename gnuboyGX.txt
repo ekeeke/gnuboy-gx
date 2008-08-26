@@ -172,7 +172,7 @@ Press B (or 2) to go back from a sub-menu.
   -----------------------------------------------------------------------------------
      go back to SDLOAD/PSOLOAD (Gamecube) or TP Loader/Homebrew Channel (Wii)
 
-  System menu
+  System Reboot
   -----------------------------------------------------------------------------------
      reset the console (Gamecube) or return to System menu (Wii)
 
@@ -192,7 +192,7 @@ First, you will have to download and install the following tools/libraries:
 You can also get and compile the current source from CVS repository 
 4.	the last libDI source code. 
 
-Once you are done, grab the current genuboy-gx source code from SVN (http://code.google.com/p/gnuboy-gx/source/checkout)
+Once you are done, grab the current gnuboy-gx source code from SVN (http://code.google.com/p/gnuboy-gx/source/checkout)
 then launch compile_all.bat from msys (installed with devkitpro) 
 
 
