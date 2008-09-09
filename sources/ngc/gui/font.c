@@ -926,21 +926,23 @@ void ClearScreen ()
   back_framewidth = 640;
 }
 
+void WaitButtonA ()
+{
+  while (getMenuButtons() & PAD_BUTTON_A) {};
+  while (!(getMenuButtons() & PAD_BUTTON_A));
+}
+
 void WaitPrompt (char *msg)
 {
   int quit = 0;
 
   if (SILENT) return;
 
-  while (getMenuButtons() & PAD_BUTTON_A) {};
-  while (!(getMenuButtons() & PAD_BUTTON_A) && (quit == 0))
-  {
-      ClearScreen();
-      WriteCentre(254, msg);
-      WriteCentre(254 + fheight, "Press A to Continue");
-      SetScreen();
-      while (!(getMenuButtons() & PAD_BUTTON_A));
-  }
+  ClearScreen();
+  WriteCentre(254, msg);
+  WriteCentre(254 + fheight, "Press A to Continue");
+  SetScreen();
+	WaitButtonA ();
 }
 
 void ShowAction (char *msg)
@@ -952,11 +954,6 @@ void ShowAction (char *msg)
   SetScreen();
 }
 
-void WaitButtonA ()
-{
-  while (getMenuButtons() & PAD_BUTTON_A) {};
-  while (!(getMenuButtons() & PAD_BUTTON_A));
-}
 
 /****************************************************************************
  * Unpack Backdrop

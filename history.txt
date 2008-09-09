@@ -1,5 +1,7 @@
 GNUBOYGX CHANGELOG
 
+CURRENT:
+. fixed "Press Button A" issue with Wiimote controllers
 
 26/08/2008:
 .fixed Classic Controller buttons default map
