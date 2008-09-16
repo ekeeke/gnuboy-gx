@@ -934,8 +934,6 @@ void WaitButtonA ()
 
 void WaitPrompt (char *msg)
 {
-  int quit = 0;
-
   if (SILENT) return;
 
   ClearScreen();
