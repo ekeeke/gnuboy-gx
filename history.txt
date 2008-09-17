@@ -1,7 +1,8 @@
 GNUBOYGX CHANGELOG
 
-CURRENT:
+17/09/2008:
 . fixed "Press Button A" issue with Wiimote controllers
+. added fast scroll using wiimote D-PAD
 
 26/08/2008:
 .fixed Classic Controller buttons default map
