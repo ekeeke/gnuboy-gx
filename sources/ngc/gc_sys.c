@@ -715,6 +715,9 @@ static s8 WPAD_StickY(u8 chan, u8 right)
 
 u16 getMenuButtons(void)
 {
+  /* slowdown input updates */
+  VIDEO_WaitVSync();
+
   /* gamecube pad */
   PAD_ScanPads();
   u16 p = PAD_ButtonsDown(0);
