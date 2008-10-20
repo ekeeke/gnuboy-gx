@@ -443,6 +443,7 @@ void vid_begin()
  ****************************************************************************
  ****************************************************************************/
 static u8 ConfigRequested;
+static u8 pcm_buffer[1600]; /* hold 8bits stereo samples for one frame */
 static u8 soundbuffer[2][3200] ATTRIBUTE_ALIGN(32);
 static u8 mixbuffer[16000];
 static int mixhead = 0;
@@ -452,28 +453,6 @@ int IsPlaying = 0;
 
 struct pcm pcm;
 
-/*** Correct method for promoting signed 8 bit to signed 16 bit samples ***/
-/*** Now mixes into mixbuffer, and no collision is possible (Softdev) ***/
-void mix_audio8to16( void )
-{
-  /*** GNUBoy internal audio format is u8pcm 
-       So use standard upscale. Clipping has already been performed
-       on the original sample, so no further work is required.
-        ***/
-  int i;
-  u16 sample;
-  u16 *src = (u16 *)pcm.buf;
-  u32 *dst = (u32 *)mixbuffer;
-
-  for( i = 0; i < pcm.pos; i+=2 )
-  {
-    sample = *src++;
-    
-    /*** Promote to 16 bit and invert sign ***/
-    dst[mixhead++] = ( ( ( sample ^ 0x80 ) & 0xff ) << 8 ) | ( ( ( sample ^ 0x8000 ) & 0xff00 ) << 16);
-    if (mixhead == 4000) mixhead = 0;
-  }
-}
 
 static int mixercollect( u8 *outbuffer, int len )
 {
@@ -492,6 +471,8 @@ static int mixercollect( u8 *outbuffer, int len )
   }
 
   /*** Realign to 32 bytes for DMA ***/
+  mixtail -= ((done&0x1f)>>2);
+  if (mixtail < 0) mixtail += 4000;
   done &= ~0x1f;
   if ( !done ) return len >> 1;
 
@@ -521,7 +502,7 @@ void pcm_init ()
   AUDIO_RegisterDMACallback (AudioSwitchBuffers);
   pcm.hz = 48000;
   pcm.len = 1600; /* 8-bits stereo samples */
-  pcm.buf = malloc(pcm.len);
+  pcm.buf = &pcm_buffer[0];
   pcm.stereo = 1;
 }
 
@@ -529,11 +510,8 @@ void pcm_reset()
 {
   memset(soundbuffer, 0, 3200*2);
   memset(mixbuffer, 0, 16000);
-  if (pcm.buf)
-  {
-    pcm.pos = 0;
-    memset(pcm.buf, 0, pcm.len);
-  }
+  pcm.pos = 0;
+  memset(pcm.buf, 0, pcm.len);
 }
 
 void pcm_close()
@@ -542,10 +520,26 @@ void pcm_close()
 
 int pcm_submit()
 {
-	if (!pcm.buf) return 0;
-	if (pcm.pos < pcm.len) return 1;
-	mix_audio8to16();
-	pcm.pos = 0;
+  /* Correct method for promoting signed 8 bit to signed 16 bit samples 
+      GNUBoy internal audio format is u8pcm 
+      So use standard upscale. Clipping has already been performed
+      on the original sample, so no further work is required.
+   */
+  int i;
+  u16 sample;
+  u16 *src = (u16 *)pcm.buf;
+  u32 *dst = (u32 *)mixbuffer;
+
+  for( i = 0; i < pcm.pos; i+=2 )
+  {
+    sample = *src++;
+    
+    /*** Promote to 16 bit and invert sign ***/
+    dst[mixhead++] = ( ( ( sample ^ 0x80 ) & 0xff ) << 8 ) | ( ( ( sample ^ 0x8000 ) & 0xff00 ) << 16);
+    if (mixhead == 4000) mixhead = 0;
+  }
+	
+  pcm.pos = 0;
       
 	/* Restart Sound Processing if stopped */
 	if (IsPlaying == 0) AudioSwitchBuffers ();
