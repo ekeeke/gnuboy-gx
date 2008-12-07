@@ -32,11 +32,14 @@ extern u8 gbamode;  /* enables GBA-only features present in some GBC games */
 extern u8 paletteindex; /*Index of selected palette color*/
 extern s16 square[];
 extern void draw_init();
+extern int use_FAT;
 
 ConfigOptions config;
 
 void config_save()
 {
+  if (!use_FAT) return;
+  
   /* first check if directory exist */
   DIR_ITER *dir = diropen("/gnuboy");
   if (dir == NULL) mkdir("/gnuboy",S_IRWXU);

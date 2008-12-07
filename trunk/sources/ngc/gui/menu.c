@@ -488,12 +488,14 @@ extern int OpenSD ();
 extern int OpenDVD();
 extern int OpenHistory();
 static u8 load_menu = 0;
+static u8 dvd_on = 0;
 
-void loadmenu ()
+int loadmenu ()
 {
+	int prevmenu = menu;
 	int ret;
 	int quit = 0;
-  int count = 4;
+  int count = 3 + dvd_on;
   char item[4][20] = {
 		{"Load Recent"},
 		{"Load from SDCARD"},
@@ -513,24 +515,35 @@ void loadmenu ()
 				break;
 
 			case 0: /*** Load Recent ***/
-				quit = OpenHistory();
+				load_menu = menu;
+        if (OpenHistory()) return 1;
 				break;
 
 			case 1:  /*** Load from SCDARD ***/
-				quit = OpenSD();
+				load_menu = menu;
+				if (OpenSD()) return 1;
 				break;
 
-      case 2:	 /*** Load from DVD ***/
-  			quit = OpenDVD();
+      case 2:
+				load_menu = menu;
+        if (OpenDVD())
+        {
+          dvd_on = 1;
+          return 1;
+        }
         break;
   
       case 3:  /*** Stop DVD Disc ***/
         dvd_motor_off();
+        dvd_on = 0;
+        count = 3 + dvd_on;
+				menu = load_menu;
 				break;
     }
 	}
 
-	load_menu = menu;
+  menu = prevmenu;
+  return 0;
 }
 
 /****************************************************************************
@@ -543,6 +556,7 @@ extern u8 gc_pal;
 extern unsigned int *xfb[2];
 extern int whichfb;
 extern GXRModeObj *vmode;
+extern int Shutdown;
 
 void MainMenu ()
 {
@@ -572,18 +586,37 @@ void MainMenu ()
     VIDEO_WaitVSync();
   }
 
+  /* autosave (SRAM only) */
+  int temp = config.freeze_auto;
+  config.freeze_auto = -1;
+  memfile_autosave();
+  config.freeze_auto = temp;
+
   while (quit == 0)
   {
+#ifdef HW_RVL
+    /* wii shutdown */
+    if (Shutdown)
+    {
+      /* autosave SRAM/State */
+      memfile_autosave();
+
+      /* shutdown Wii */
+      DI_Close();
+      SYS_ResetSystem(SYS_POWEROFF, 0, 0);
+    }
+#endif
+
     ret = DoMenu (&items[0], count);
 
     switch (ret)
     {
-      case -1: /* Button B  */
-      case 0:  /* Play Game */
+			case -1: /*** Button B ***/
+			case 0:  /*** Play Game ***/
         quit = 1;
         break;
 
-      case 1:
+			case 1:	 /*** ROM Information ***/
         RomInfo();
         break;
 
@@ -592,20 +625,19 @@ void MainMenu ()
         quit = 1;
         break;
  
-      case 3:
-        loadmenu ();
-        menu = 0;
+			case 3:  /*** Load ROM Menu ***/
+				quit = loadmenu();
         break;
 
-      case 4:
+			case 4:  /*** Memory Manager ***/
         quit = FileMenu ();
         break;
 
-      case 5:
+			case 5:  /*** Emulator Options */
         OptionMenu();
         break;
 
-			case 6:
+			case 6:  /*** SD/PSO/TP Reload ***/
         memfile_autosave();
         VIDEO_ClearFrameBuffer(vmode, xfb[whichfb], COLOR_BLACK);
         VIDEO_Flush();
@@ -616,7 +648,7 @@ void MainMenu ()
         exit(0);
 		    break;
 
-			case 7:
+			case 7:  /*** Return to Wii System Menu ***/
         memfile_autosave();
         VIDEO_ClearFrameBuffer(vmode, xfb[whichfb], COLOR_BLACK);
         VIDEO_Flush();
