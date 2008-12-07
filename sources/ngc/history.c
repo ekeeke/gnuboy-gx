@@ -17,9 +17,12 @@
 #include "history.h"
 
 t_history history;
+extern int use_FAT;
 
 void history_save()
 {
+  if (!use_FAT) return;
+
   /* first check if directory exist */
   DIR_ITER *dir = diropen("/gnuboy");
   if (dir == NULL) mkdir("/gnuboy",S_IRWXU);

@@ -22,6 +22,21 @@
 #include "di/di.h"
 #endif
 
+int Shutdown = 0;
+int use_FAT;
+
+static u8 ConfigRequested;
+
+#ifdef HW_RVL
+/* Power Button callback */
+void Power_Off(void)
+{
+  Shutdown = 1;
+  ConfigRequested = 1;
+}
+#endif
+
+
 /* 576 lines interlaced (PAL 50Hz, scaled) */
 GXRModeObj TV50hz_576i = 
 {
@@ -252,6 +267,7 @@ void InitGCVideo ()
 {
 #ifdef HW_RVL
 	/* initialize Wii DVD interface first */
+  DI_Close();
   DI_Init();
 #endif
 
@@ -285,6 +301,10 @@ void InitGCVideo ()
     
     default:
   	  gc_pal = 0;
+#ifndef HW_RVL
+      /* force 480p on NTSC GameCube if the Component Cable is present */
+      if (VIDEO_HaveComponentCable()) vmode = &TVNtsc480Prog;
+#endif
       break;
   }
 
@@ -326,7 +346,18 @@ void InitGCVideo ()
   DVD_Init ();
   dvd_drive_detect();
 #endif
-  fatInitDefault();
+
+#ifdef HW_RVL
+  /* Power Button callback */
+  SYS_SetPowerCallback(Power_Off);
+#endif
+
+  /* Initialize SDCARD Interface (LibFAT) */
+  if (fatInitDefault() == true)
+  {
+    use_FAT = 1;
+    fatEnableReadAhead (PI_DEFAULT, 6, 64);
+  }
   unpackBackdrop ();
   init_font();
   StartGX ();
@@ -442,7 +473,6 @@ void vid_begin()
  *
  ****************************************************************************
  ****************************************************************************/
-static u8 ConfigRequested;
 static u8 pcm_buffer[1600]; /* hold 8bits stereo samples for one frame */
 static u8 soundbuffer[2][3200] ATTRIBUTE_ALIGN(32);
 static u8 mixbuffer[16000];
@@ -594,7 +624,7 @@ int PADCAL = 30;
 
 #ifdef HW_RVL
 
-#define MAX_HELD_CNT 10
+#define MAX_HELD_CNT 15
 static u32 held_cnt = 0;
 
 static u32 wpadmap[3][8] =
@@ -712,7 +742,7 @@ u16 getMenuButtons(void)
   /* slowdown input updates */
   VIDEO_WaitVSync();
 
-  /* gamecube pad */
+  /* get gamepad inputs */
   PAD_ScanPads();
   u16 p = PAD_ButtonsDown(0);
   s8 x  = PAD_StickX(0);
@@ -745,7 +775,7 @@ u16 getMenuButtons(void)
     held_cnt ++;
     if (held_cnt == MAX_HELD_CNT)
     {
-      held_cnt = 0;
+      held_cnt = MAX_HELD_CNT - 2;
       p |= ir.valid ? PAD_BUTTON_UP : PAD_BUTTON_LEFT;
     }
   }
@@ -754,7 +784,7 @@ u16 getMenuButtons(void)
     held_cnt ++;
     if (held_cnt == MAX_HELD_CNT)
     {
-      held_cnt = 0;
+      held_cnt = MAX_HELD_CNT - 2;
       p |= ir.valid ? PAD_BUTTON_DOWN : PAD_BUTTON_RIGHT;
     }
   }
@@ -763,7 +793,7 @@ u16 getMenuButtons(void)
     held_cnt ++;
     if (held_cnt == MAX_HELD_CNT)
     {
-      held_cnt = 0;
+      held_cnt = MAX_HELD_CNT - 2;
       p |= ir.valid ? PAD_BUTTON_LEFT : PAD_BUTTON_DOWN;
     }
   }
@@ -772,7 +802,7 @@ u16 getMenuButtons(void)
     held_cnt ++;
     if (held_cnt == MAX_HELD_CNT)
     {
-      held_cnt = 0;
+      held_cnt = MAX_HELD_CNT - 2;
       p |= ir.valid ? PAD_BUTTON_RIGHT : PAD_BUTTON_UP;
     }
   }
