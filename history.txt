@@ -1,8 +1,12 @@
 GNUBOYGX CHANGELOG
 
+
+08/12/2008:
+-----------
 [NGC/Wii]
 - removed embedded font, (re)enabled IPL font support: now should works for Qoob users too (thanks to emukiddid)
-- minor bugfixes and menu tweaks
+- menu tweaks
+- compiled with libogc 1.7.0 
 
 [NGC only]
 - added 480p support in menu
@@ -10,22 +14,25 @@ GNUBOYGX CHANGELOG
 [Wii only]
 - implemented fast scrolling in menu using Wiimote D-PAD
 - added "Power" button support
-- improved SDCARD access speed (svpe's "read-ahead" patch)
-- compiled with libogc CVS: SDHC support, Wiimote shutdown button support
-
+- libogc 1.7.0 features (SDHC support , Wiimote shutdown button support)
 
 
 17/09/2008:
+-----------
 . fixed "Press Button A" issue with Wiimote controllers
 . added fast scroll using wiimote D-PAD
 
+
 26/08/2008:
+-----------
 .fixed Classic Controller buttons default map
 .added automatic alphabetical file sorting (Marty Disibio)
 .added ROM History for faster ROM access (Marty Disibio)
 .added DVD support in Wii Mode (no modchip required)
 
+
 15/07/2008:
+-----------
 . added Wii mode support
 . added wiimote/nunchuk/classic controller support (WII version)
 . added libfat support 
@@ -34,11 +41,14 @@ GNUBOYGX CHANGELOG
 . added Progressive (480p) TV mode support (autodetected)
 . added various display aspect ratio support (ORIGINAL, SCALED, STRECTH)
 
+
 10/10/2007:
+-----------
 . improved sound rendering
 
-20/07/2007:
 
+20/07/2007:
+-----------
 [GB/GBC]
  . added RTC Synchro: in-game RTC (Real Time Clock) is now synchronized with system RTC on SRAM load
  . added GBC/GBA palettes color for GB Mono [Askot]
@@ -65,19 +75,26 @@ GNUBOYGX CHANGELOG
 
 
 24/05/2007:
+-----------
  . added a new option for display different palette colors in Mono GB Mode
    (most of them taken from GoombaColor)(Askot)
 
+
 23/04/2007:
+-----------
  . corrected a little bug with SRAM/STATE saving
  . modified key config upon request: SELECT is now assignated to Y Button
 
-17/04/2007: (eke-eke)
+
+17/04/2007:
+-----------
  . added SRAM, RTC & STATE load/save support
  . added GUI and configurable options menu
  . corrected Sound Samples conversion (thanks to Softdev)
  . changed Sound Buffering Technic(changed to "head/tail" technic used by Softdev in NeoCDredux)
 
+
 13/04/2007: WIP1
- . initial release by softdev
+-----------
+ . initial release
 
