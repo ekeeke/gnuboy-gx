@@ -4,22 +4,21 @@
  * Copyright 2007 Eke-Eke
  * This file may be distributed under the terms of the GNU GPL.
  */
-#include <fat.h>
-#ifdef HW_RVL
-#include <wiiuse/wpad.h>
-#endif
-
-#include "font.h"
 #include "defs.h"
 #include "mem.h"
 #include "pcm.h"
 #include "fb.h"
 #include "hw.h"
 #include "config.h"
+#include "font.h"
+
+#include <fat.h>
+
 #ifndef HW_RVL
 #include "dvd.h"
 #else
-#include "di/di.h"
+#include <wiiuse/wpad.h>
+#include <di/di.h>
 #endif
 
 int Shutdown = 0;
@@ -352,12 +351,12 @@ void InitGCVideo ()
   SYS_SetPowerCallback(Power_Off);
 #endif
 
-  /* Initialize SDCARD Interface (LibFAT) */
+  /* Initialize FAT Interface */
   if (fatInitDefault() == true)
   {
     use_FAT = 1;
-    fatEnableReadAhead (PI_DEFAULT, 6, 64);
   }
+
   unpackBackdrop ();
   init_font();
   StartGX ();
@@ -613,12 +612,9 @@ static u16 padmap[8] =
   PAD_BUTTON_LEFT, PAD_BUTTON_RIGHT
 };
 
-extern u8 SILENT;
-extern int CARDSLOT;
-extern int use_SDCARD;
-extern int gbromsize;
 extern void MainMenu ();
-extern int ManageSRAM (int direction);
+extern void memfile_autosave();
+extern int Shutdown;
 
 int PADCAL = 30;
 
@@ -739,6 +735,18 @@ static s8 WPAD_StickY(u8 chan, u8 right)
 
 u16 getMenuButtons(void)
 {
+#ifdef HW_RVL
+    if (Shutdown)
+    {
+      /* autosave SRAM/State */
+      memfile_autosave();
+
+      /* shutdown Wii */
+      DI_Close();
+      SYS_ResetSystem(SYS_POWEROFF, 0, 0);
+    }
+#endif
+
   /* slowdown input updates */
   VIDEO_WaitVSync();
 

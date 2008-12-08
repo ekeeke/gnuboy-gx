@@ -556,7 +556,6 @@ extern u8 gc_pal;
 extern unsigned int *xfb[2];
 extern int whichfb;
 extern GXRModeObj *vmode;
-extern int Shutdown;
 
 void MainMenu ()
 {
@@ -594,19 +593,6 @@ void MainMenu ()
 
   while (quit == 0)
   {
-#ifdef HW_RVL
-    /* wii shutdown */
-    if (Shutdown)
-    {
-      /* autosave SRAM/State */
-      memfile_autosave();
-
-      /* shutdown Wii */
-      DI_Close();
-      SYS_ResetSystem(SYS_POWEROFF, 0, 0);
-    }
-#endif
-
     ret = DoMenu (&items[0], count);
 
     switch (ret)
