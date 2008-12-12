@@ -17,8 +17,8 @@ include $(DEVKITPPC)/gamecube_rules
 #---------------------------------------------------------------------------------
 TARGET		:=	gnuboy_cube
 BUILD		:=	build_cube
-SOURCES		:=	sources sources/ngc sources/ngc/gui
-INCLUDES	:=	sources sources/ngc sources/ngc/gui
+SOURCES		:=	sources sources/ngc sources/ngc/gui sources/ngc/fileio
+INCLUDES	:=	sources sources/ngc sources/ngc/gui sources/ngc/fileio
 
 #---------------------------------------------------------------------------------
 # options for code generation

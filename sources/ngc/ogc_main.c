@@ -3,7 +3,7 @@
  * Eke-Eke 2007
  * This file may be distributed under the terms of the GNU GPL.
  */
- 
+
 #include "defs.h"
 #include "mem.h"
 #include "lcd.h"

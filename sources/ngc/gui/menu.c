@@ -1,8 +1,9 @@
-
-/******************************************************************************
- *  Gnuboy Gamecube port - Menu handler
- *  Original code by Softdev (@tehskeen.com)
- *  Adapted for Gnuboy Port by Eke-Eke (@tehskeen.com)
+/****************************************************************************
+ *  menu.c
+ *
+ *  Gnuboy Plus GX menu
+ *
+ *  code by Softdev (March 2006), Eke-Eke (2007,2008)
  *
  *   This program is free software; you can redistribute it and/or modify
  *   it under the terms of the GNU General Public License as published by
@@ -18,13 +19,7 @@
  *   along with this program; if not, write to the Free Software
  *   Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  *
- * Nintendo Gamecube/Wii Menu
- *
  ***************************************************************************/
-#ifdef HW_RVL
-#include <wiiuse/wpad.h>
-#include "di/di.h"
-#endif
 
 #include "defs.h"
 #include "font.h"
@@ -33,10 +28,21 @@
 #include "hw.h"
 #include "rtc.h"
 #include "config.h"
+#include "file_fat.h"
+#include "file_dvd.h"
 
-/****************************************************************************
- * Generic Menu Routines
- ****************************************************************************/
+#ifdef HW_RVL
+#include <wiiuse/wpad.h>
+#include <di/di.h>
+#endif
+
+/***************************************************************************
+ * drawmenu
+ *
+ * As it says, simply draws the menu with a highlight on the currently
+ * selected item :)
+ ***************************************************************************/
+char menutitle[60] = { "" };
 int menu = 0;
 
 void DrawMenu (char items[][20], int maxitems, int selected)
@@ -62,7 +68,6 @@ void DrawMenu (char items[][20], int maxitems, int selected)
  *
  * Returns index into menu array when A is pressed, -1 for B
  ****************************************************************************/
-extern u16 getMenuButtons(void);
 int DoMenu (char items[][20], int maxitems)
 {
   int redraw = 1;
@@ -186,11 +191,11 @@ void OptionMenu ()
     sprintf (optionmenu[3], "GBA Features: %s",config.gbamode ? "Y" : "N");
     sprintf (optionmenu[4], "Palette: %s", paltxt[config.paletteindex]);
     sprintf (optionmenu[5], "RTC Synchro: %s", config.syncrtc ? "Y" : "N");
-		if (config.sram_auto == 0) sprintf (optionmenu[6], "Auto SRAM: SDCARD");
+		if (config.sram_auto == 0) sprintf (optionmenu[6], "Auto SRAM: FAT");
 		else if (config.sram_auto == 1) sprintf (optionmenu[6], "Auto SRAM: MCARD A");
 		else if (config.sram_auto == 2) sprintf (optionmenu[6], "Auto SRAM: MCARD B");
 		else sprintf (optionmenu[6], "Auto SRAM: OFF");
-		if (config.freeze_auto == 0) sprintf (optionmenu[7], "Auto FREEZE: SDCARD");
+		if (config.freeze_auto == 0) sprintf (optionmenu[7], "Auto FREEZE: FAT");
 		else if (config.freeze_auto == 1) sprintf (optionmenu[7], "Auto FREEZE: MCARD A");
 		else if (config.freeze_auto == 2) sprintf (optionmenu[7], "Auto FREEZE: MCARD B");
 		else sprintf (optionmenu[7], "Auto FREEZE: OFF");
@@ -408,7 +413,7 @@ int loadsavemenu (int which)
 
   while (quit == 0)
   {
-    if (device == 0) sprintf(items[0], "Device: SDCARD");
+    if (device == 0) sprintf(items[0], "Device: FAT");
     else if (device == 1) sprintf(items[0], "Device: MCARD A");
     else if (device == 2) sprintf(items[0], "Device: MCARD B");
 
@@ -484,61 +489,99 @@ int FileMenu ()
  * Load Rom menu
  *
  ****************************************************************************/
-extern int OpenSD ();
-extern int OpenDVD();
-extern int OpenHistory();
+extern int gbromsize;
+extern u8 *gbrom;
+extern int reload_rom ();
+extern void memfile_autosave();
+extern void memfile_autoload();
+
 static u8 load_menu = 0;
 static u8 dvd_on = 0;
 
 int loadmenu ()
 {
 	int prevmenu = menu;
-	int ret;
+  int ret,count,size;
 	int quit = 0;
-  int count = 3 + dvd_on;
-  char item[4][20] = {
+#ifdef HW_RVL
+  char item[5][20] = {
 		{"Load Recent"},
-		{"Load from SDCARD"},
+    {"Load from SD"},
+    {"Load from USB"},
 		{"Load from DVD"},
     {"Stop DVD Motor"}
 	};
+#else
+  char item[4][20] = {
+    {"Load Recent"},
+    {"Load from SD"},
+    {"Load from DVD"},
+    {"Stop DVD Motor"}
+  };
+#endif
 
 	menu = load_menu;
 	
 	while (quit == 0)
 	{
-		ret = DoMenu (&item[0], count);
+#ifdef HW_RVL
+    count = 4 + dvd_on;
+#else
+    count = 3 + dvd_on;
+#endif
+    strcpy (menutitle, "Press B to return");
+    ret = DoMenu (&item[0], count);
 		switch (ret)
 		{
-			case -1: /*** Button B ***/
+      /*** Button B ***/
+      case -1: 
 				quit = 1;
 				break;
 
-			case 0: /*** Load Recent ***/
-				load_menu = menu;
-        if (OpenHistory()) return 1;
-				break;
-
-			case 1:  /*** Load from SCDARD ***/
-				load_menu = menu;
-				if (OpenSD()) return 1;
-				break;
-
+      /*** Load from DVD ***/
+#ifdef HW_RVL
+      case 3:
+#else
       case 2:
+#endif
 				load_menu = menu;
-        if (OpenDVD())
+        size = DVD_Open(gbrom);
+        if (size)
         {
           dvd_on = 1;
+          gbromsize = size;
+          memfile_autosave();
+		  reload_rom();
+          memfile_autoload();
           return 1;
         }
         break;
   
-      case 3:  /*** Stop DVD Disc ***/
+      /*** Stop DVD Disc ***/
+#ifdef HW_RVL
+      case 4:  
+#else
+      case 3:
+#endif
         dvd_motor_off();
         dvd_on = 0;
-        count = 3 + dvd_on;
-				menu = load_menu;
-				break;
+		menu = load_menu;
+		break;
+
+      /*** Load from FAT device ***/
+      default:
+        load_menu = menu;
+        size = FAT_Open(ret,gbrom);
+        if (size)
+        {
+          gbromsize = size;
+          memfile_autosave();
+		  reload_rom();
+          memfile_autoload(); 
+          return 1;
+        }
+        break;
+
     }
 	}
 
@@ -550,12 +593,12 @@ int loadmenu ()
  * Main Menu
  *
  ****************************************************************************/
-extern void memfile_autosave();
 extern void emu_reset();
 extern u8 gc_pal;
 extern unsigned int *xfb[2];
 extern int whichfb;
 extern GXRModeObj *vmode;
+
 
 void MainMenu ()
 {

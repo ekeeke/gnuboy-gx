@@ -25,7 +25,7 @@ http://www.tehskeen.com/forums/showthread.php?t=4443
 -=[ FEATURES ]=-
 
  . Gameboy and Gameboy Color emulation with sound
- . DVD & SDCARD support for rom loading
+ . DVD, USB (Wii only) & SDCARD support for ROM files loading
  . Freeze State support (load & save)
  . SRAM/RTC support (load & save)
  . support for 8MB roms
@@ -114,7 +114,9 @@ Press B (or 2) to go back from a sub-menu.
   . Load Recent let you browse a ROM history list with the ten last opened ROM files.
  This is only available for ROM files previously loaded from SDCARD.
 
-  . Load from SDCARD  let you browse the SDCARD. 
+  . Load from SD let you browse the SDCARD. 
+
+  . Load from USB let you browse the USB strorage device. 
 
   . Load from DVD let you browse the DVD. 
 
@@ -156,7 +158,7 @@ Press B (or 2) to go back from a sub-menu.
   . SRAM Manager:  Let you load/save SRAM and RTC data from/to the selected device
   . STATE Manager: Let you load/save Savestate data from/to the selected device
   
-  . Device: Let you choose the device to use: SDCARD or MCARD
+  . Device: Let you choose the device to use: FAT (automatically detected) or MCARD
  
   The size of the created files is variable and depends on the ROM type.
 
@@ -165,7 +167,7 @@ Press B (or 2) to go back from a sub-menu.
    1/ when using NGC Memory Card in SLOTA, some mounting errors may occur. In this case,
       remove and insert the Memory Card again before trying to save/load anything.
 
-   2/ when using SDCARD, the directory /gnuboy/saves is automatically created
+   2/ when using FAT device, the directory /gnuboy/saves is automatically created
 
 
   Return to Loader:

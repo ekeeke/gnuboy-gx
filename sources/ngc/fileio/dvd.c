@@ -1,28 +1,34 @@
-/****************************************************************************
- * Nintendo Gamecube DVD Reading Library
+/*
+ * dvd.c
+ * 
+ *   Low-level DVD access
  *
- * This is NOT a complete DVD library, in that it works for reading 
- * ISO9660 discs only.
+ *   code by Softdev (2006), Eke-Eke (2007,2008) 
  *
- * If you need softmod drivecodes etc, look elsewhere.
- * There are known issues with libogc dvd handling, so these work
- * outside of it ,if you will.
+ *   This program is free software; you can redistribute it and/or modify
+ *   it under the terms of the GNU General Public License as published by
+ *   the Free Software Foundation; either version 2 of the License, or
+ *   (at your option) any later version.
  *
- * This is ideal for using with a gc-linux self booting DVD only.
- * Go http://www.gc-linux.org for further information and the tools
- * for your platform.
+ *   This program is distributed in the hope that it will be useful,
+ *   but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ *   GNU General Public License for more details.
  *
- * To keep libOGC stable, make sure you call DVD_Init before using
- * these functions.
- ***************************************************************************/
+ *   You should have received a copy of the GNU General Public License
+ *   along with this program; if not, write to the Free Software
+ *   Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+ *
+ ********************************************************************************/
+
 #include "defs.h"
+
 #ifdef HW_RVL
 #include "di/di.h"
 #endif
 
-
 #ifndef HW_RVL
-static u64 DvdMaxOffset = 0x57057C00;                 /* 1.4 GB max. */
+static u64 DvdMaxOffset = 0x57057C00;                 /* 1.4 GB max. by default */
 static vu32* const dvd = (u32*)0xCC006000;            /* DVD I/O Address base */
 static u8 *inquiry=(unsigned char *)0x80000004;       /* pointer to drive ID */
 #else
@@ -30,7 +36,6 @@ static u64 DvdMaxOffset = 0x118244F00LL;              /* 4.7 GB max. */
 #endif
 
 static u8 DVDreadbuffer[2048] ATTRIBUTE_ALIGN (32);   /* data buffer for all DVD operations */
-
 
 
 /***************************************************************************
@@ -45,9 +50,9 @@ u32 dvd_read (void *dst, u32 len, u64 offset)
 
   /*** Let's not read past end of DVD ***/
   if(offset < DvdMaxOffset)
-{
-  unsigned char *buffer = (unsigned char *) (unsigned int) DVDreadbuffer;
-  DCInvalidateRange((void *)buffer, len);
+  {
+    unsigned char *buffer = (unsigned char *) (unsigned int) DVDreadbuffer;
+    DCInvalidateRange((void *)buffer, len);
 
 #ifndef HW_RVL
     dvd[0] = 0x2E;
@@ -61,16 +66,16 @@ u32 dvd_read (void *dst, u32 len, u64 offset)
 
     /*** Enable reading with DMA ***/
     while (dvd[7] & 1);
-   
+
     /*** Ensure it has completed ***/
     if (dvd[0] & 0x4) return 0;
-  
+
 #else
     if (DI_ReadDVD(buffer, len >> 11, (u32)(offset >> 11))) return 0;
 #endif
     memcpy (dst, buffer, len);
-  return 1;
-}
+    return 1;
+  }
 
   return 0; 
 }
@@ -86,18 +91,18 @@ void dvd_motor_off( )
 {
 #ifndef HW_RVL
   dvd[0] = 0x2e;
-	dvd[1] = 0;
-	dvd[2] = 0xe3000000;
-	dvd[3] = 0;
-	dvd[4] = 0;
-	dvd[5] = 0;
-	dvd[6] = 0;
-	dvd[7] = 1; // Do immediate
-	while (dvd[7] & 1);
+  dvd[1] = 0;
+  dvd[2] = 0xe3000000;
+  dvd[3] = 0;
+  dvd[4] = 0;
+  dvd[5] = 0;
+  dvd[6] = 0;
+  dvd[7] = 1; // Do immediate
+  while (dvd[7] & 1);
 
-	/*** PSO Stops blackscreen at reload ***/
-	dvd[0] = 0x14;
-	dvd[1] = 0;
+  /*** PSO Stops blackscreen at reload ***/
+  dvd[0] = 0x14;
+  dvd[1] = 0;
 
 #else
   DI_StopMotor();
@@ -136,7 +141,7 @@ void uselessinquiry ()
  ****************************************************************************/
 void dvd_drive_detect()
 {
-	dvd[0] = 0x2e;
+  dvd[0] = 0x2e;
   dvd[1] = 0;
   dvd[2] = 0x12000000;
   dvd[3] = 0;
