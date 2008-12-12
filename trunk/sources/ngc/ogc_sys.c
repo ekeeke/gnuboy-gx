@@ -22,7 +22,7 @@
 #endif
 
 int Shutdown = 0;
-int use_FAT;
+BOOL fat_enabled;
 
 static u8 ConfigRequested;
 
@@ -52,23 +52,23 @@ GXRModeObj TV50hz_576i =
   GX_FALSE,        // aa
 
   // sample points arranged in increasing Y order
-	{
-		{6,6},{6,6},{6,6},  // pix 0, 3 sample points, 1/12 units, 4 bits each
-		{6,6},{6,6},{6,6},  // pix 1
-		{6,6},{6,6},{6,6},  // pix 2
-		{6,6},{6,6},{6,6}   // pix 3
-	},
+  {
+    {6,6},{6,6},{6,6},  // pix 0, 3 sample points, 1/12 units, 4 bits each
+    {6,6},{6,6},{6,6},  // pix 1
+    {6,6},{6,6},{6,6},  // pix 2
+    {6,6},{6,6},{6,6}   // pix 3
+  },
 
   // vertical filter[7], 1/64 units, 6 bits each
-	{
-		 8,         // line n-1
-		 8,         // line n-1
-		10,         // line n
-		12,         // line n
-		10,         // line n
-		 8,         // line n+1
-		 8          // line n+1
-	}
+  {
+     8,         // line n-1
+     8,         // line n-1
+    10,         // line n
+    12,         // line n
+    10,         // line n
+     8,         // line n+1
+     8          // line n+1
+  }
 };
 
 /****************************************************************************
@@ -105,9 +105,9 @@ void sys_sleep(int us)
  ****************************************************************************/
 
 /*** 2D Video ***/
-unsigned int *xfb[2];	/*** Double buffered ***/
-int whichfb = 0;		/*** Switch ***/
-GXRModeObj *vmode;		/*** General video mode ***/
+unsigned int *xfb[2];  /*** Double buffered ***/
+int whichfb = 0;    /*** Switch ***/
+GXRModeObj *vmode;    /*** General video mode ***/
 
 /*** GX ***/
 #define TEX_WIDTH 160
@@ -265,7 +265,7 @@ u8 gc_pal;
 void InitGCVideo ()
 {
 #ifdef HW_RVL
-	/* initialize Wii DVD interface first */
+  /* initialize Wii DVD interface first */
   DI_Close();
   DI_Init();
 #endif
@@ -299,13 +299,22 @@ void InitGCVideo ()
       break;
     
     default:
-  	  gc_pal = 0;
+      gc_pal = 0;
 #ifndef HW_RVL
       /* force 480p on NTSC GameCube if the Component Cable is present */
       if (VIDEO_HaveComponentCable()) vmode = &TVNtsc480Prog;
 #endif
       break;
   }
+
+#ifdef HW_RVL
+  /* Widescreen fix */
+  if( CONF_GetAspectRatio() )
+  {
+    vmode->viWidth    = 678;
+    vmode->viXOrigin  = (VI_MAX_WIDTH_NTSC - 678)/2;
+  }
+#endif
 
   VIDEO_Configure (vmode);
 
@@ -338,7 +347,7 @@ void InitGCVideo ()
   PAD_Init ();
 #ifdef HW_RVL
   WPAD_Init();
-	WPAD_SetIdleTimeout(60);
+  WPAD_SetIdleTimeout(60);
   WPAD_SetDataFormat(WPAD_CHAN_ALL,WPAD_FMT_BTNS_ACC_IR);
   WPAD_SetVRes(WPAD_CHAN_ALL,640,480);
 #else 
@@ -354,7 +363,14 @@ void InitGCVideo ()
   /* Initialize FAT Interface */
   if (fatInitDefault() == true)
   {
-    use_FAT = 1;
+    fat_enabled = 1;
+#ifdef HW_RVL
+    fatEnableReadAhead ("sd", 6, 64);
+    fatEnableReadAhead ("usb", 6, 64);
+#else
+    fatEnableReadAhead ("carda", 6, 64);
+    fatEnableReadAhead ("cardb", 6, 64);
+#endif
   }
 
   unpackBackdrop ();
@@ -567,13 +583,13 @@ int pcm_submit()
     dst[mixhead++] = ( ( ( sample ^ 0x80 ) & 0xff ) << 8 ) | ( ( ( sample ^ 0x8000 ) & 0xff00 ) << 16);
     if (mixhead == 4000) mixhead = 0;
   }
-	
+  
   pcm.pos = 0;
       
-	/* Restart Sound Processing if stopped */
-	if (IsPlaying == 0) AudioSwitchBuffers ();
+  /* Restart Sound Processing if stopped */
+  if (IsPlaying == 0) AudioSwitchBuffers ();
   
-	return 1;
+  return 1;
 }
 
 /****************************************************************************
@@ -589,11 +605,11 @@ int pcm_submit()
  * reflect the changes - or confusion will ensue!
  *
  * DEFAULT MAPPING IS:
- *		Gameboy			Gamecube
- *		  A			   A
- *		  B		       B
- *		  START		   START
- *		  SELECT       Y
+ *    Gameboy      Gamecube
+ *      A         A
+ *      B           B
+ *      START       START
+ *      SELECT       Y
  *
  */
 static u32 gbpadmap[8] =
@@ -757,7 +773,7 @@ u16 getMenuButtons(void)
   s8 y  = PAD_StickY(0);
   if (x > 70) p |= PAD_BUTTON_RIGHT;
   else if (x < -70) p |= PAD_BUTTON_LEFT;
-	if (y > 60) p |= PAD_BUTTON_UP;
+  if (y > 60) p |= PAD_BUTTON_UP;
   else if (y < -60) p |= PAD_BUTTON_DOWN;
 
 #ifdef HW_RVL
@@ -958,7 +974,7 @@ void ev_poll()
 
   /* Frame Synchronization */
   if (gc_pal)
-	{
+  {
     /* PAL 50Hz: use timer */
     now = gettime();
     while (diff_usec(prev, now) < 16666) now = gettime();

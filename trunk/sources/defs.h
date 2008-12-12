@@ -11,9 +11,6 @@ typedef signed int n32;
 typedef un16 word;
 typedef word addr;
 
-#ifndef NGC
-#define NGC 1
-#endif
 
 #ifdef NGC
 #ifdef IS_LITTLE_ENDIAN
@@ -22,6 +19,19 @@ typedef word addr;
 
 #include <gccore.h>
 #include <ogcsys.h>
+#include <sys/dir.h>
+#include <fat.h>
+
+#include "config.h"
+
+#define DEFAULT_PATH "/gnuboy"
+
+extern BOOL fat_enabled;
+extern u16 getMenuButtons(void);
+
+#endif
+
+
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
@@ -137,7 +147,6 @@ void sound_reset();
 byte sound_read(byte r);
 void sound_write(byte r, byte b);
 
-#endif
 
 
 #ifdef IS_LITTLE_ENDIAN

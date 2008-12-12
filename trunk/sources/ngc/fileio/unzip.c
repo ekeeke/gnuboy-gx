@@ -1,24 +1,37 @@
 /******************************************************************************
  *
- * Nintendo Gamecube Zip Support
+ * unzip.c
  *
- * Only partial support is included, in that only the first file within the archive
- * is considered to be a ROM image.
- ***************************************************************************/
+ *   Zip Support
+ *
+ *   Only partial support is included, in that only the first file within the archive
+ *   is considered to be a ROM image.
+ *
+ *   code by Softdev (2006), Eke-Eke (2007,2008) 
+ *
+ *   This program is free software; you can redistribute it and/or modify
+ *   it under the terms of the GNU General Public License as published by
+ *   the Free Software Foundation; either version 2 of the License, or
+ *   (at your option) any later version.
+ *
+ *   This program is distributed in the hope that it will be useful,
+ *   but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ *   GNU General Public License for more details.
+ *
+ *   You should have received a copy of the GNU General Public License
+ *   along with this program; if not, write to the Free Software
+ *   Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+ *
+ ********************************************************************************/
 
 #include "defs.h"
 #include "dvd.h"
 #include "font.h"
 
-#include <zlib.h>
-#include <fat.h>
-
-/* SDCARD File access */
-extern FILE *sdfile;
-
- /*
-  * PKWare Zip Header - adopted into zip standard
-  */
+/*
+ * PKWare Zip Header - adopted into zip standard
+ */
 #define PKZIPID 0x504b0304
 #define MAXROM 0x500000
 #define ZIPCHUNK 2048
@@ -28,7 +41,7 @@ extern FILE *sdfile;
  */
 typedef struct
 {
-  unsigned int zipid __attribute__ ((__packed__));	// 0x04034b50
+  unsigned int zipid __attribute__ ((__packed__));  // 0x04034b50
   unsigned short zipversion __attribute__ ((__packed__));
   unsigned short zipflags __attribute__ ((__packed__));
   unsigned short compressionMethod __attribute__ ((__packed__));
@@ -76,12 +89,12 @@ int IsZipFile (char *buffer)
   return 0;
 }
 
- /*****************************************************************************
+/*****************************************************************************
  * UnZipBuffer
  *
  * It should be noted that there is a limit of 5MB total size for any ROM
  ******************************************************************************/
-int UnZipBuffer (unsigned char *outbuffer, u64 discoffset, int length, u8 UseSDCARD)
+int UnZipBuffer (unsigned char *outbuffer, u64 discoffset, char *filename)
 {
   PKZIPHEADER pkzip;
   int zipoffset = 0;
@@ -93,25 +106,33 @@ int UnZipBuffer (unsigned char *outbuffer, u64 discoffset, int length, u8 UseSDC
   int have = 0;
   char readbuffer[2048];
   char msg[128];
+  FILE *fatfile = NULL;
 
-	/*** Read Zip Header ***/
-  if ( UseSDCARD )
+  /*** FAT file support ***/
+  if (filename)
   {
-    fseek(sdfile, 0, SEEK_SET);
-    fread(readbuffer, 1, 2048, sdfile);
-    }
+    fatfile = fopen(filename, "rb");
+    if (fatfile == NULL) return 0;
+  }
+
+  /*** Read Zip Header ***/
+  if (fatfile)
+  {
+    fseek(fatfile, 0, SEEK_SET);
+    fread(readbuffer, 1, 2048, fatfile);
+  }
   else
   {
     dvd_read (&readbuffer, 2048, discoffset);
   }
 
-	/*** Copy PKZip header to local, used as info ***/
+  /*** Copy PKZip header to local, used as info ***/
   memcpy (&pkzip, &readbuffer, sizeof (PKZIPHEADER));
 
-  sprintf (msg, "Unzipping %d bytes ... Wait", FLIP32 (pkzip.uncompressedSize));
+  sprintf (msg, "Unzipping %d bytes ...", FLIP32 (pkzip.uncompressedSize));
   ShowAction (msg);
 
-	/*** Prepare the zip stream ***/
+  /*** Prepare the zip stream ***/
   memset (&zs, 0, sizeof (z_stream));
   zs.zalloc = Z_NULL;
   zs.zfree = Z_NULL;
@@ -132,7 +153,7 @@ int UnZipBuffer (unsigned char *outbuffer, u64 discoffset, int length, u8 UseSDC
     zs.avail_in = zipchunk;
     zs.next_in = (Bytef *) & readbuffer[zipoffset];
 
-	/*** Now inflate until input buffer is exhausted ***/
+    /*** Now inflate until input buffer is exhausted ***/
     do
     {
       zs.avail_out = ZIPCHUNK;
@@ -158,10 +179,10 @@ int UnZipBuffer (unsigned char *outbuffer, u64 discoffset, int length, u8 UseSDC
     /*** Readup the next 2k block ***/
     zipoffset = 0;
     zipchunk = ZIPCHUNK;
-	  
-    if ( UseSDCARD )
+    
+    if (fatfile)
     {
-      fread(readbuffer, 1, 2048, sdfile);
+      fread(readbuffer, 1, 2048, fatfile);
     }
     else
     {
@@ -173,6 +194,9 @@ int UnZipBuffer (unsigned char *outbuffer, u64 discoffset, int length, u8 UseSDC
 
   inflateEnd (&zs);
 
+  /* close file */
+  if (fatfile) fclose(fatfile);
+
   if (res == Z_STREAM_END)
   {
     if (FLIP32 (pkzip.uncompressedSize) == (u32) bufferoffset) return bufferoffset;
@@ -181,3 +205,6 @@ int UnZipBuffer (unsigned char *outbuffer, u64 discoffset, int length, u8 UseSDC
 
   return 0;
 }
+
+
+

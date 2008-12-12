@@ -38,7 +38,7 @@ ConfigOptions config;
 
 void config_save()
 {
-  if (!use_FAT) return;
+  if (!fat_enabled) return;
   
   /* first check if directory exist */
   DIR_ITER *dir = diropen("/gnuboy");
