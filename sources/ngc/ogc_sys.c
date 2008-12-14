@@ -11,6 +11,7 @@
 #include "hw.h"
 #include "config.h"
 #include "font.h"
+#include "history.h"
 
 #include <fat.h>
 
@@ -372,6 +373,10 @@ void InitGCVideo ()
     fatEnableReadAhead ("cardb", 6, 64);
 #endif
   }
+
+  /* Restore Recent Files list */
+  set_history_defaults();
+  history_load();
 
   unpackBackdrop ();
   init_font();

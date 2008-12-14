@@ -21,9 +21,6 @@
 #include "config.h"
 #include "font.h"
 
-#include <fat.h>
-#include <sys/dir.h>
-
 extern u8 usefilter; /* Apply Display Filter */
 extern u8 filterdmg; /* Apply Filter also for GameBoy MONO */
 extern u8 syncrtc;   /* Synchronize in-game RTC on SRAM load with your own Console RTC  */

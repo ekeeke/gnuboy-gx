@@ -30,8 +30,6 @@
 #include "dvd.h"
 #endif
 
-#include <sys/dir.h>
-
 extern void loadstate (u8 *buffer);
 extern int savestate (u8 *buffer);
 extern void sram_load (u8 *srambuf);

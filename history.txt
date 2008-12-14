@@ -1,7 +1,7 @@
 GNUBOYGX CHANGELOG
 
 
-08/12/2008:
+14/12/2008:
 -----------
 [NGC/Wii]
 - removed embedded font, (re)enabled IPL font support: now should works for Qoob users too (thanks to emukiddid)
