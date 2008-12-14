@@ -191,14 +191,14 @@ void OptionMenu ()
     sprintf (optionmenu[3], "GBA Features: %s",config.gbamode ? "Y" : "N");
     sprintf (optionmenu[4], "Palette: %s", paltxt[config.paletteindex]);
     sprintf (optionmenu[5], "RTC Synchro: %s", config.syncrtc ? "Y" : "N");
-		if (config.sram_auto == 0) sprintf (optionmenu[6], "Auto SRAM: FAT");
-		else if (config.sram_auto == 1) sprintf (optionmenu[6], "Auto SRAM: MCARD A");
-		else if (config.sram_auto == 2) sprintf (optionmenu[6], "Auto SRAM: MCARD B");
-		else sprintf (optionmenu[6], "Auto SRAM: OFF");
-		if (config.freeze_auto == 0) sprintf (optionmenu[7], "Auto FREEZE: FAT");
-		else if (config.freeze_auto == 1) sprintf (optionmenu[7], "Auto FREEZE: MCARD A");
-		else if (config.freeze_auto == 2) sprintf (optionmenu[7], "Auto FREEZE: MCARD B");
-		else sprintf (optionmenu[7], "Auto FREEZE: OFF");
+    if (config.sram_auto == 0) sprintf (optionmenu[6], "Auto SRAM: FAT");
+    else if (config.sram_auto == 1) sprintf (optionmenu[6], "Auto SRAM: MCARD A");
+    else if (config.sram_auto == 2) sprintf (optionmenu[6], "Auto SRAM: MCARD B");
+    else sprintf (optionmenu[6], "Auto SRAM: OFF");
+    if (config.freeze_auto == 0) sprintf (optionmenu[7], "Auto FREEZE: FAT");
+    else if (config.freeze_auto == 1) sprintf (optionmenu[7], "Auto FREEZE: MCARD A");
+    else if (config.freeze_auto == 2) sprintf (optionmenu[7], "Auto FREEZE: MCARD B");
+    else sprintf (optionmenu[7], "Auto FREEZE: OFF");
 
     ret = DoMenu (&optionmenu[0], 8);
 
@@ -263,12 +263,12 @@ void OptionMenu ()
         config.syncrtc ^= 1;
         break;
 
-      case 6:	/*** SRAM autoload/autosave ***/
-				config.sram_auto ++;
+      case 6:  /*** SRAM autoload/autosave ***/
+        config.sram_auto ++;
         if (config.sram_auto > 2) config.sram_auto = -1;
         break;
 
-      case 7:	/*** FreezeState autoload/autosave ***/
+      case 7:  /*** FreezeState autoload/autosave ***/
         config.freeze_auto ++;
         if (config.freeze_auto > 2) config.freeze_auto = -1;
         break;
@@ -288,7 +288,7 @@ void OptionMenu ()
   syncrtc       = config.syncrtc;
   forcedmg      = config.forcedmg;
   gbamode       = config.gbamode;
-	paletteindex  = config.paletteindex;
+  paletteindex  = config.paletteindex;
 
   menu = prevmenu;
 }
@@ -421,14 +421,14 @@ int loadsavemenu (int which)
 
     switch (ret)
     {
-			case -1:
+      case -1:
       case 3:
-				quit = 1;
-				break;
+        quit = 1;
+        break;
 
-			case 0:
+      case 0:
         device = (device + 1)%3;
-				break;
+        break;
 
       case 1:
       case 2:
@@ -500,17 +500,17 @@ static u8 dvd_on = 0;
 
 int loadmenu ()
 {
-	int prevmenu = menu;
+  int prevmenu = menu;
   int ret,count,size;
-	int quit = 0;
+  int quit = 0;
 #ifdef HW_RVL
   char item[5][20] = {
-		{"Load Recent"},
+    {"Load Recent"},
     {"Load from SD"},
     {"Load from USB"},
-		{"Load from DVD"},
+    {"Load from DVD"},
     {"Stop DVD Motor"}
-	};
+  };
 #else
   char item[4][20] = {
     {"Load Recent"},
@@ -520,10 +520,10 @@ int loadmenu ()
   };
 #endif
 
-	menu = load_menu;
-	
-	while (quit == 0)
-	{
+  menu = load_menu;
+  
+  while (quit == 0)
+  {
 #ifdef HW_RVL
     count = 4 + dvd_on;
 #else
@@ -531,12 +531,12 @@ int loadmenu ()
 #endif
     strcpy (menutitle, "Press B to return");
     ret = DoMenu (&item[0], count);
-		switch (ret)
-		{
+    switch (ret)
+    {
       /*** Button B ***/
       case -1: 
-				quit = 1;
-				break;
+        quit = 1;
+        break;
 
       /*** Load from DVD ***/
 #ifdef HW_RVL
@@ -544,14 +544,14 @@ int loadmenu ()
 #else
       case 2:
 #endif
-				load_menu = menu;
+        load_menu = menu;
         size = DVD_Open(gbrom);
         if (size)
         {
           dvd_on = 1;
           gbromsize = size;
           memfile_autosave();
-		  reload_rom();
+          reload_rom();
           memfile_autoload();
           return 1;
         }
@@ -565,8 +565,8 @@ int loadmenu ()
 #endif
         dvd_motor_off();
         dvd_on = 0;
-		menu = load_menu;
-		break;
+        menu = load_menu;
+        break;
 
       /*** Load from FAT device ***/
       default:
@@ -576,14 +576,13 @@ int loadmenu ()
         {
           gbromsize = size;
           memfile_autosave();
-		  reload_rom();
+          reload_rom();
           memfile_autoload(); 
           return 1;
         }
         break;
-
     }
-	}
+  }
 
   menu = prevmenu;
   return 0;
@@ -602,11 +601,11 @@ extern GXRModeObj *vmode;
 
 void MainMenu ()
 {
-	s8 ret;
-	u8 quit = 0;
+  s8 ret;
+  u8 quit = 0;
   menu = 0;
-	u8 count = 8;
-	char items[8][20] =
+  u8 count = 8;
+  char items[8][20] =
   {
     {"Play Game"},
     {"Game Infos"},
@@ -640,12 +639,12 @@ void MainMenu ()
 
     switch (ret)
     {
-			case -1: /*** Button B ***/
-			case 0:  /*** Play Game ***/
+      case -1: /*** Button B ***/
+      case 0:  /*** Play Game ***/
         quit = 1;
         break;
 
-			case 1:	 /*** ROM Information ***/
+      case 1:   /*** ROM Information ***/
         RomInfo();
         break;
 
@@ -654,19 +653,19 @@ void MainMenu ()
         quit = 1;
         break;
  
-			case 3:  /*** Load ROM Menu ***/
-				quit = loadmenu();
+      case 3:  /*** Load ROM Menu ***/
+        quit = loadmenu();
         break;
 
-			case 4:  /*** Memory Manager ***/
+      case 4:  /*** Memory Manager ***/
         quit = FileMenu ();
         break;
 
-			case 5:  /*** Emulator Options */
+      case 5:  /*** Emulator Options */
         OptionMenu();
         break;
 
-			case 6:  /*** SD/PSO/TP Reload ***/
+      case 6:  /*** SD/PSO/TP Reload ***/
         memfile_autosave();
         VIDEO_ClearFrameBuffer(vmode, xfb[whichfb], COLOR_BLACK);
         VIDEO_Flush();
@@ -675,24 +674,24 @@ void MainMenu ()
         DI_Close();
 #endif
         exit(0);
-		    break;
+        break;
 
-			case 7:  /*** Return to Wii System Menu ***/
+      case 7:  /*** Return to Wii System Menu ***/
         memfile_autosave();
         VIDEO_ClearFrameBuffer(vmode, xfb[whichfb], COLOR_BLACK);
         VIDEO_Flush();
         VIDEO_WaitVSync();
 #ifdef HW_RVL
         DI_Close();
-				SYS_ResetSystem(SYS_RETURNTOMENU, 0, 0);
+        SYS_ResetSystem(SYS_RETURNTOMENU, 0, 0);
 #else
-				SYS_ResetSystem(SYS_HOTRESET,0,0);
+        SYS_ResetSystem(SYS_HOTRESET,0,0);
 #endif
-		    break;
+        break;
     }
   }
   
-	/*** Remove any still held buttons ***/
+  /*** Remove any still held buttons ***/
   while (PAD_ButtonsHeld(0)) PAD_ScanPads();
 #ifdef HW_RVL
   while (WPAD_ButtonsHeld(0)) WPAD_ScanPads();
@@ -701,7 +700,7 @@ void MainMenu ()
   /*** Restore fullscreen 50hz ***/
   if (gc_pal)
   {
-	  extern GXRModeObj TV50hz_576i;
+    extern GXRModeObj TV50hz_576i;
     GXRModeObj *rmode = &TV50hz_576i;
     Mtx p;
 
