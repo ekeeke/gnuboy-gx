@@ -286,9 +286,12 @@ void OptionMenu ()
   usefilter     = config.usefilter;
   filterdmg     = config.filterdmg;
   syncrtc       = config.syncrtc;
+  paletteindex  = config.paletteindex;
   forcedmg      = config.forcedmg;
   gbamode       = config.gbamode;
-  paletteindex  = config.paletteindex;
+  u8 c = gbrom[0x0147];
+  hw.cgb = ((c == 0x80) || (c == 0xc0)) && !forcedmg;
+  hw.gba = (hw.cgb && gbamode);
 
   menu = prevmenu;
 }
