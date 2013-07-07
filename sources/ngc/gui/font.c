@@ -306,7 +306,6 @@ void WriteCentre_HL( int y, char *string)
   writex(x, y, h, fheight, string, blit_lookup_inv);
 }
 
-
 /****************************************************************************
  *  Draw functions
  *
@@ -389,6 +388,21 @@ void ShowAction (char *msg)
   SetScreen();
 }
 
+void WaitWKF()
+{
+     int ypos = 200;
+
+     ClearScreen();
+
+     WriteCentre (ypos, "WKF Detected");
+     ypos += fheight;
+     WriteCentre (ypos, "Remove SD CARD to enable Flatmode");
+     WriteCentre(254 + fheight, "Press A to Continue");
+     SetScreen();
+     WaitButtonA ();
+}
+
+
 
 /****************************************************************************
  * Unpack Backdrop
@@ -403,5 +417,6 @@ void unpackBackdrop ()
   inbytes = BACK_COMPRESSED;
   outbytes = BACK_RAW;
   res = uncompress ((Bytef *) &backdrop[0], &outbytes, (Bytef *) &menuback[0], inbytes);
+  if (res == Z_OK) {} // shut up the compiler warning
 }
 

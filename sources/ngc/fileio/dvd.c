@@ -24,6 +24,8 @@
 #include "defs.h"
 #include "font.h"
 
+#include "wkf.h"
+
 #ifdef HW_RVL
 #include "di/di.h"
 #endif
@@ -140,7 +142,8 @@ void uselessinquiry ()
  * dvd_drive_detect()
  *
  * Detect the DVD Drive Type
- *
+ * Detect if WKF is connected inline with Wii or GC drive
+ * 
  ****************************************************************************/
 void dvd_drive_detect()
 {
@@ -161,6 +164,13 @@ void dvd_drive_detect()
   {
     /* Gamecube DVD Drive (1.4 GB)*/
     DvdMaxOffset = 0x57057C00;
+  }
+  else if  ((driveid == 2) && (__wkfSpiReadId() != 0 && __wkfSpiReadId() != 0xFFFFFFFF) && (wkfIsInserted(0) == true) )
+  {
+     // WKF detected - show options
+     WaitWKF();
+     __wkfReset();
+     dvd_drive_detect();
   }
   else 
   {

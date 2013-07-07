@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<app version="1">
+  <name>GNUBOY GX</name>
+  <coder>Eke-Eke</coder>
+  <version>1.04.2</version>
+  <release_date>07/07/2013</release_date>
+  <short_description>Gameboy and Gameboy Color Emulator</short_description>
+  <long_description>Emulator updated by megalomaniac.
+
+GnuboyGX is a port for the Nintendo Gamecube and Nintendo Wii of the open-source Gnuboy emulator, originally coded by Laguna and Gilgamesh.
+Please read gnuboy-gx.txt and history.txt for list of changes.
+Visit http://www.gc-forever.com for any questions and updates.</long_description>
+  <no_ios_reload/>
+</app>
+

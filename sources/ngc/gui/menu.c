@@ -36,6 +36,8 @@
 #include <di/di.h>
 #endif
 
+extern u8 *gbrom;
+extern u8 legal();
 /***************************************************************************
  * drawmenu
  *
@@ -53,6 +55,7 @@ void DrawMenu (char items[][20], int maxitems, int selected)
   ypos = (330 - (maxitems * fheight)) >> 1;
   ypos += 90;
   ClearScreen ();
+  WriteCentre (134, menutitle);
 
   for (i = 0; i < maxitems; i++)
   {
@@ -173,34 +176,30 @@ void OptionMenu ()
   int ret;
   int quit = 0;
   int filtering = config.usefilter + (config.filterdmg << 1);
-  char optionmenu[8][20];
+  char optionmenu[7][20];
   int prevmenu = menu;
   u16 xscale, yscale;
   
   menu = 0;
-  
+
+
   while (quit == 0)
   {
+    strcpy (menutitle, "");
+
     if (config.aspect == 0)      sprintf (optionmenu[0], "Aspect: STRETCH");
     else if (config.aspect == 1) sprintf (optionmenu[0], "Aspect: ORIGINAL");
     else if (config.aspect == 2) sprintf (optionmenu[0], "Aspect: SCALED");
-    sprintf (optionmenu[1], "Force Mono: %s",config.forcedmg ? "Y" : "N");
+    sprintf (optionmenu[1], "Force Mono: %s",config.forcedmg ? "YES" : "NO");
     if (filtering == 1) sprintf (optionmenu[2], "Filtering: GBC");
     else if (filtering == 3) sprintf (optionmenu[2], "Filtering: ALL");
     else sprintf (optionmenu[2], "Filtering: OFF");
-    sprintf (optionmenu[3], "GBA Features: %s",config.gbamode ? "Y" : "N");
+    sprintf (optionmenu[3], "GBA Features: %s",config.gbamode ? "YES" : "NO");
     sprintf (optionmenu[4], "Palette: %s", paltxt[config.paletteindex]);
-    sprintf (optionmenu[5], "RTC Synchro: %s", config.syncrtc ? "Y" : "N");
-    if (config.sram_auto == 0) sprintf (optionmenu[6], "Auto SRAM: FAT");
-    else if (config.sram_auto == 1) sprintf (optionmenu[6], "Auto SRAM: MCARD A");
-    else if (config.sram_auto == 2) sprintf (optionmenu[6], "Auto SRAM: MCARD B");
-    else sprintf (optionmenu[6], "Auto SRAM: OFF");
-    if (config.freeze_auto == 0) sprintf (optionmenu[7], "Auto FREEZE: FAT");
-    else if (config.freeze_auto == 1) sprintf (optionmenu[7], "Auto FREEZE: MCARD A");
-    else if (config.freeze_auto == 2) sprintf (optionmenu[7], "Auto FREEZE: MCARD B");
-    else sprintf (optionmenu[7], "Auto FREEZE: OFF");
+    sprintf (optionmenu[5], "RTC Synchro: %s", config.syncrtc ? "YES" : "NO");
+    sprintf(optionmenu[6], "Return to previous");
 
-    ret = DoMenu (&optionmenu[0], 8);
+    ret = DoMenu (&optionmenu[0], 7);
 
     switch (ret)
     {
@@ -263,17 +262,8 @@ void OptionMenu ()
         config.syncrtc ^= 1;
         break;
 
-      case 6:  /*** SRAM autoload/autosave ***/
-        config.sram_auto ++;
-        if (config.sram_auto > 2) config.sram_auto = -1;
-        break;
-
-      case 7:  /*** FreezeState autoload/autosave ***/
-        config.freeze_auto ++;
-        if (config.freeze_auto > 2) config.freeze_auto = -1;
-        break;
-
       case -1:
+      case 6:
         quit = 1;
         break;
      }
@@ -306,6 +296,7 @@ void RomInfo ()
   int rlen, ypos;
 
   ClearScreen ();
+    strcpy (menutitle, "");
   ypos = 140;
   
     /* Title */
@@ -397,48 +388,79 @@ int loadsavemenu (int which)
   int prevmenu = menu;
   int quit = 0;
   int ret;
-  int count = 4;
-  char items[4][20];
+  int count = 5;
+  char items[5][20];
   
   if (which  == 1)
   {
+    strcpy (menutitle, "STATE Manager");
     sprintf(items[1], "Save State");
     sprintf(items[2], "Load State");
   }
   else
   {
+    strcpy (menutitle, "SRAM Manager");
     sprintf(items[1], "Save SRAM");
     sprintf(items[2], "Load SRAM");
   }
-  sprintf(items[3], "Return to previous");
+  sprintf(items[4], "Return to previous");
 
-  menu = 2;
+  menu = 3;
 
   while (quit == 0)
   {
-    if (device == 0) sprintf(items[0], "Device: FAT");
-    else if (device == 1) sprintf(items[0], "Device: MCARD A");
-    else if (device == 2) sprintf(items[0], "Device: MCARD B");
+     if (device == 0) sprintf(items[0], "Device: FAT");
+     else if (device == 1) sprintf(items[0], "Device: MCARD A");
+     else if (device == 2) sprintf(items[0], "Device: MCARD B");
+
+     if (which  == 1)
+     {
+        if (config.freeze_auto == 0) sprintf (items[3], "Auto FREEZE: FAT");
+        else if (config.freeze_auto == 1) sprintf (items[3], "Auto FREEZE: MCARD A");
+        else if (config.freeze_auto == 2) sprintf (items[3], "Auto FREEZE: MCARD B");
+        else sprintf (items[3], "Auto FREEZE: OFF");
+     }
+     else
+     {
+        if (config.sram_auto == 0) sprintf (items[3], "Auto SRAM: FAT");
+        else if (config.sram_auto == 1) sprintf (items[3], "Auto SRAM: MCARD A");
+        else if (config.sram_auto == 2) sprintf (items[3], "Auto SRAM: MCARD B");
+        else sprintf (items[3], "Auto SRAM: OFF");
+     }
 
     ret = DoMenu(&items[0], count);
 
     switch (ret)
     {
       case -1:
-      case 3:
-        quit = 1;
-        break;
+      case 4:
+         quit = 1;
+         break;
 
-      case 0:
-        device = (device + 1)%3;
-        break;
-
-      case 1:
+      case 0:  // Device FAT / MEMORY CARD
+         device = (device + 1)%3;
+         break;
+      case 1:  // ManageState or ManageSRAM
       case 2:
         if (which == 1) quit = ManageState (ret-1,device);
         else quit = ManageSRAM (ret-1,device);
         if (quit) return 1;
         break;
+      case 3:  
+         if (which  == 1)  // FreezeState autoload & autosave
+         {
+            config.freeze_auto ++;
+            if (config.freeze_auto > 2) config.freeze_auto = -1;
+            config_save();
+            break;
+         }
+         else  // SRAM autoload & autosave
+         {
+            config.sram_auto ++;
+            if (config.sram_auto > 2) config.sram_auto = -1;
+            config_save();
+            break;
+         }
     }
   }
 
@@ -447,19 +469,22 @@ int loadsavemenu (int which)
 }
 
 /****************************************************************************
- * File Manager Menu
+ * Emulator Options Menu
  *
  ****************************************************************************/
-int FileMenu ()
+int Emu_options ()
 {
   int quit = 0;
   int ret;
   int prevmenu = menu;
-  int mcardcount = 3;
-  char mcardmenu[3][20] =
+  int mcardcount = 6;
+  char mcardmenu[6][20] =
   {
+    {"Video Options"},
     {"SRAM Manager"},
     {"STATE Manager"},
+    {"Game Infos"},    
+    {"View Credits"},
     {"Return to previous"}
   };
 
@@ -467,19 +492,28 @@ int FileMenu ()
 
   while (quit == 0)
   {
+    strcpy (menutitle, "Emulator Options");
     ret = DoMenu(&mcardmenu[0], mcardcount);
 
     switch (ret)
-    {
-      case -1:
-      case  2:
-        quit = 1;
-        break;
-
-      case 0:
-      case 1:
-        if (loadsavemenu(ret)) return 1;
-        break;
+     {
+        case -1:
+        case  5:
+           quit = 1;
+           break;
+        case 0:   // Video Options
+           OptionMenu();
+           break;
+        case 1:   // File Manager
+        case 2:
+           if (loadsavemenu(ret-1)) return 1;
+           break;
+        case 3:   // ROM Information
+           RomInfo();
+           break;
+        case 4:   // view credits
+           legal();
+           break;
     }
   }
 
@@ -487,13 +521,11 @@ int FileMenu ()
   return 0;
 }
 
-
 /****************************************************************************
  * Load Rom menu
  *
  ****************************************************************************/
 extern int gbromsize;
-extern u8 *gbrom;
 extern int reload_rom ();
 extern void memfile_autosave();
 extern void memfile_autoload();
@@ -501,25 +533,33 @@ extern void memfile_autoload();
 static u8 load_menu = 0;
 static u8 dvd_on = 0;
 
+
 int loadmenu ()
 {
   int prevmenu = menu;
   int ret,count,size;
   int quit = 0;
 #ifdef HW_RVL
-  char item[5][20] = {
+  count = 7;
+  char item[7][20] = {
     {"Load Recent"},
     {"Load from SD"},
     {"Load from USB"},
+    {"Load from IDE-EXI"},
     {"Load from DVD"},
-    {"Stop DVD Motor"}
+    {"Stop DVD Motor"},
+    {"Return to previous"}
   };
 #else
-  char item[4][20] = {
+  count = 7;
+  char item[7][20] = {
     {"Load Recent"},
     {"Load from SD"},
+    {"Load from IDE-EXI"},
+    {"Load from WKF"},
     {"Load from DVD"},
-    {"Stop DVD Motor"}
+    {"Stop DVD Motor"},
+    {"Return to previous"}
   };
 #endif
 
@@ -527,26 +567,13 @@ int loadmenu ()
   
   while (quit == 0)
   {
-#ifdef HW_RVL
-    count = 4 + dvd_on;
-#else
-    count = 3 + dvd_on;
-#endif
-    strcpy (menutitle, "Press B to return");
+    strcpy (menutitle, "");
     ret = DoMenu (&item[0], count);
     switch (ret)
     {
-      /*** Button B ***/
-      case -1: 
-        quit = 1;
-        break;
+      // Load from DVD
 
-      /*** Load from DVD ***/
-#ifdef HW_RVL
-      case 3:
-#else
-      case 2:
-#endif
+      case 4:
         load_menu = menu;
         size = DVD_Open(gbrom);
         if (size)
@@ -559,19 +586,22 @@ int loadmenu ()
           return 1;
         }
         break;
-  
-      /*** Stop DVD Disc ***/
-#ifdef HW_RVL
-      case 4:  
-#else
-      case 3:
-#endif
+
+      // Stop DVD Disc
+      case 5:
         dvd_motor_off();
         dvd_on = 0;
         menu = load_menu;
         break;
 
-      /*** Load from FAT device ***/
+
+      // Button B - Return to Previous
+      case -1:
+      case 6:
+        quit = 1;
+        break;
+
+      // Load from SD, USB, IDE-EXI, or WKF device
       default:
         load_menu = menu;
         size = FAT_Open(ret,gbrom);
@@ -607,16 +637,21 @@ void MainMenu ()
   s8 ret;
   u8 quit = 0;
   menu = 0;
-  u8 count = 8;
-  char items[8][20] =
+#ifdef HW_RVL
+  u8 count = 6;
+  char items[6][20] =
+#else
+  u8 count = 5;
+  char items[5][20] =
+#endif
   {
     {"Play Game"},
-    {"Game Infos"},
     {"Hard Reset"},
     {"Load New Game"},
-    {"File Management"},
     {"Emulator Options"},
+#ifdef HW_RVL
     {"Return to Loader"},
+#endif
     {"System Reboot"}
   };
 
@@ -636,8 +671,10 @@ void MainMenu ()
   memfile_autosave();
   config.freeze_auto = temp;
 
+  
   while (quit == 0)
   {
+    strcpy (menutitle, "Version 1.04.2");  
     ret = DoMenu (&items[0], count);
 
     switch (ret)
@@ -647,44 +684,34 @@ void MainMenu ()
         quit = 1;
         break;
 
-      case 1:   /*** ROM Information ***/
-        RomInfo();
-        break;
-
-      case 2:
+      case 1:
         emu_reset();
         quit = 1;
         break;
  
-      case 3:  /*** Load ROM Menu ***/
+      case 2:  /*** Load ROM Menu ***/
         quit = loadmenu();
         break;
 
-      case 4:  /*** Memory Manager ***/
-        quit = FileMenu ();
+      case 3:  /*** Emulator Options */
+        Emu_options();
         break;
 
-      case 5:  /*** Emulator Options */
-        OptionMenu();
-        break;
-
-      case 6:  /*** SD/PSO/TP Reload ***/
+      case 4:  /*** SD/PSO/TP Reload ***/
         memfile_autosave();
         VIDEO_ClearFrameBuffer(vmode, xfb[whichfb], COLOR_BLACK);
         VIDEO_Flush();
         VIDEO_WaitVSync();
 #ifdef HW_RVL
         DI_Close();
-#endif
         exit(0);
         break;
 
-      case 7:  /*** Return to Wii System Menu ***/
+      case 5:  /*** Return to Wii System Menu ***/
         memfile_autosave();
         VIDEO_ClearFrameBuffer(vmode, xfb[whichfb], COLOR_BLACK);
         VIDEO_Flush();
         VIDEO_WaitVSync();
-#ifdef HW_RVL
         DI_Close();
         SYS_ResetSystem(SYS_RETURNTOMENU, 0, 0);
 #else
