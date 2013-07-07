@@ -1,6 +1,48 @@
 GNUBOYGX CHANGELOG
 
 
+07/07/2013: ( Official Version 1.04.2 release by megalomaniac )
+-----------
+[NGC]
+- WKF support added
+   . load roms from FAT formatted SD card in WKF slot
+   . roms location (  WKF:/gnuboy/roms/  )
+   . WKF Flatmode detection added for users with DVD + WKF.
+   ... If WKF is not in Flatmode message prompt will be displayed to remove WKF SD card
+   . Savestate/SRAM manager can save and load from MEMCARD or SD GECKO ( SD:/gnuboy/saves/ ) 
+   . Config and History files can save and load from default SD Gecko device if found
+
+[NGC/Wii]
+- IDE-EXI support added
+   . load roms from HDD
+   . roms location (  IDE:/gnuboy/roms/  )
+   . SlotA or SlotB autodetection
+   . write support not yet added, save files and progress to SD or MEMCARD
+
+Previous Unofficial Version release code changes updated into official SVN. Thanks Eke-Eke
+Thanks emu_kidid for borrowed swiss WKF & IDE-EXI code
+
+
+
+
+02/25/2013: ( Unofficial Version 1.04.1 release by megalomaniac )
+-----------
+[NGC]
+- Based on GNUboyGX 1.04
+- Various code changes to fix compiler errors and supress "most" compiler warnings
+- Fixed start up crash which occurs after compiling against latest resources (devkitPPC r26 and libogc 1.8.11.1)
+- SDHC support
+- Menu enhancements:
+   . Fixed Menu to correctly display "Stop DVD Motor" option
+   . "File Management" moved to Emulator Options menu
+   . "Game Infos" moved to Emulator Options menu
+   . Startup "Credits" moved to Emulator Options menu
+- Minor controller changes: 
+   . L Trigger will return to main menu
+
+
+
+
 14/12/2008:
 -----------
 [NGC/Wii]

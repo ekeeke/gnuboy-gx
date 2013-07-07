@@ -28,12 +28,21 @@
 #include "filesel.h"
 #include "file_fat.h"
 
+#include "ata.h"
+#include "wkf.h"
+
 /* current FAT directory */
 static char fatdir[MAXPATHLEN];
 
 /* current FAT device */
 static int fat_type   = 0;
 static int useHistory = 0;
+
+#ifndef HW_RVL
+extern const DISC_INTERFACE* WKF_slot;
+#endif
+extern const DISC_INTERFACE* IDEA_slot;
+extern const DISC_INTERFACE* IDEB_slot;
 
 /***************************************************************************
  * FAT_UpdateDir
@@ -103,10 +112,10 @@ int FAT_ParseDirectory()
 {
   int nbfiles = 0;
   char filename[MAXPATHLEN];
-  struct stat filestat;
+  char filename1[MAXPATHLEN];
 
   /* open directory */
-  DIR_ITER *dir = diropen (fatdir);
+  DIR* dir = opendir (fatdir);
   if (dir == NULL) 
   {
     sprintf(filename, "Error opening %s", fatdir);
@@ -114,19 +123,23 @@ int FAT_ParseDirectory()
     return 0;
   }
 
-  while ((dirnext(dir, filename, &filestat) == 0) && (nbfiles < MAXFILES))
-  {
-    if (strcmp(filename,".") != 0)
-    {
-      memset(&filelist[nbfiles], 0, sizeof (FILEENTRIES));
-      sprintf(filelist[nbfiles].filename,"%s",filename);
-      filelist[nbfiles].length = filestat.st_size;
-      filelist[nbfiles].flags = (filestat.st_mode & S_IFDIR) ? 1 : 0;
-      nbfiles++;
-    }
-  }
+  struct dirent *entry = readdir(dir);
+  struct stat filestat;
 
-  dirclose(dir);
+  while ((entry != NULL)&& (nbfiles < MAXFILES) ){         // list entries
+     if (strcmp(filename,".") != 0) {
+        memset(&filelist[nbfiles], 0, sizeof (FILEENTRIES));    
+        sprintf(filelist[nbfiles].filename,"%s", entry->d_name);         
+        sprintf(filename1, "%s%s", fatdir, filelist[nbfiles].filename); 
+        stat(filename1, &filestat);  
+        filelist[nbfiles].length = filestat.st_size;
+        filelist[nbfiles].flags  = (filestat.st_mode & S_IFDIR) ? 1 : 0;
+        nbfiles++;
+     }
+
+     entry = readdir(dir);                                  // next entry
+  }
+  closedir(dir);
 
   /* Sort the file list */
   qsort(filelist, nbfiles, sizeof(FILEENTRIES), FileSortCallback);
@@ -222,15 +235,26 @@ int FAT_Open(int type, u8 *buffer)
 {
   int max = 0;
   char root[10] = "";
-
-  /* reset flags */
   useFAT = 1;
   
   /* FAT header */
+  if (type == TYPE_IDE)
+  {
+     if ( IDEA_slot->startup() && fatMountSimple("IDEA", IDEA_slot) ) sprintf (root, "IDEA:"); 
+     else if ( IDEB_slot->startup() && fatMountSimple("IDEB", IDEB_slot) ) sprintf (root, "IDEB:"); 
+     else { WaitPrompt ("IDE-EXI not initialized"); return 0; }
+  }
 #ifdef HW_RVL
-  if (type == TYPE_SD) sprintf (root, "sd:");
+  else if (type == TYPE_SD) sprintf (root, "sd:");
   else if (type == TYPE_USB) sprintf (root, "usb:");
+#else
+  else if (type == TYPE_WKF)
+  {
+     if ( WKF_slot->startup() && fatMountSimple("WKF", WKF_slot) )  sprintf (root, "WKF:");
+     else { WaitPrompt ("WKF not initialized"); return 0; }
+  }
 #endif
+
 
   /* if FAT device type changed, reload filelist */
   if (fat_type != type) 
@@ -238,6 +262,7 @@ int FAT_Open(int type, u8 *buffer)
     haveFATdir = 0;
   }
   fat_type = type;
+
 
   /* update filelist */
   if (haveFATdir == 0)
@@ -273,9 +298,9 @@ int FAT_Open(int type, u8 *buffer)
       sprintf (fatdir, "%s%s/roms/", root, DEFAULT_PATH);
 
       /* if directory doesn't exist, use root as default */
-      DIR_ITER *dir = diropen(fatdir);
+      DIR* dir = opendir(fatdir);
       if (dir == NULL) sprintf (fatdir, "%s/", root);
-      else dirclose(dir);
+      else closedir(dir);
 
       /* parse root directory */
       ShowAction("Reading Directory ...");
@@ -306,3 +331,4 @@ int FAT_Open(int type, u8 *buffer)
 
   return FileSelector (buffer);
 }
+

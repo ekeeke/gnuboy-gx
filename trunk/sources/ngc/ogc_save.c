@@ -183,15 +183,15 @@ void loadstate(u8 *buffer)
       d = LIL(header[j][1]);
       switch (svars[i].len)
       {
-      case 1:
-        *(byte *)svars[i].ptr = d;
-        break;
-      case 2:
-        *(un16 *)svars[i].ptr = d;
-        break;
-      case 4:
-        *(un32 *)svars[i].ptr = d;
-        break;
+         case 1:
+            *(byte *)svars[i].ptr = d;
+            break;
+         case 2:
+            *(un16 *)svars[i].ptr = d;
+            break;
+         case 4:
+            *(un32 *)svars[i].ptr = d;
+            break;
       }
       break;
     }

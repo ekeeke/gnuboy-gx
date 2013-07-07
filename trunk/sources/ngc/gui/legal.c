@@ -43,7 +43,9 @@ void legal ()
   VIDEO_ClearFrameBuffer(&TVNtsc480IntDf, xfb[whichfb], COLOR_WHITE);
   back_framewidth = 640;
 
-  WriteCentre (ypos, "Gnuboy Gameboy/Gameboy Color Emulator (v1.04)");
+  WriteCentre (ypos, "Gnuboy Gameboy/Gameboy Color Emulator");
+  ypos += fheight;
+  WriteCentre (ypos, "Based on CVS version 1.04");
   ypos += fheight;
   WriteCentre (ypos, "Original Code by Laguna and Gilgamesh");
   ypos += fheight;

@@ -1,4 +1,4 @@
-	/******************************************************************************
+/******************************************************************************
  *  Gnuboy Gamecube port
  *  Eke-Eke (@tehskeen.com)
  *  Additional code & support by Askot
@@ -21,12 +21,12 @@
 #include "config.h"
 #include "font.h"
 
-extern u8 usefilter; /* Apply Display Filter */
-extern u8 filterdmg; /* Apply Filter also for GameBoy MONO */
-extern u8 syncrtc;   /* Synchronize in-game RTC on SRAM load with your own Console RTC  */
-extern u8 forcedmg;  /* Force Mono Gameboy  */
-extern u8 gbamode;  /* enables GBA-only features present in some GBC games */
-extern u8 paletteindex; /*Index of selected palette color*/
+extern u8 usefilter;    /* Apply Display Filter */
+extern u8 filterdmg;    /* Apply Filter also for GameBoy MONO */
+extern u8 syncrtc;      /* Synchronize in-game RTC on SRAM load with your own Console RTC  */
+extern u8 forcedmg;     /* Force Mono Gameboy  */
+extern u8 gbamode;      /* enables GBA-only features present in some GBC games */
+extern u8 paletteindex; /* Index of selected palette color*/
 extern s16 square[];
 extern void draw_init();
 extern int use_FAT;
@@ -38,9 +38,9 @@ void config_save()
   if (!fat_enabled) return;
   
   /* first check if directory exist */
-  DIR_ITER *dir = diropen("/gnuboy");
+  DIR* dir = opendir("/gnuboy");
   if (dir == NULL) mkdir("/gnuboy",S_IRWXU);
-  else dirclose(dir);
+  else closedir(dir);
 
   /* open config file */
   FILE *fp = fopen("/gnuboy/gnuboy.ini", "wb");
@@ -67,7 +67,7 @@ void config_load()
   syncrtc       = config.syncrtc;
   forcedmg      = config.forcedmg;
   gbamode       = config.gbamode;
-	paletteindex  = config.paletteindex;
+  paletteindex  = config.paletteindex;
 
   /* restore display */
   u16 xscale, yscale;

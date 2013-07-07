@@ -34,9 +34,9 @@ void history_save()
 
   /* first check if directory exist */
   sprintf (pathname, DEFAULT_PATH);
-  DIR_ITER *dir = diropen(pathname);
+  DIR* dir = opendir(pathname);
   if (dir == NULL) mkdir(pathname,S_IRWXU);
-  else dirclose(dir);
+  else closedir(dir);
 
   /* open file for writing */
   sprintf (pathname, "%s/history.ini", pathname);

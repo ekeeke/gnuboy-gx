@@ -351,7 +351,13 @@ int DVD_Open (u8 *buffer)
 {
   /* reset flags */
   useFAT      = 0;
+  
+#ifndef HW_RVL
+  DVD_Init ();
+  dvd_drive_detect();
+#endif
 
+  
   /* is DVD mounted ? */
   if (!getpvd())
   {

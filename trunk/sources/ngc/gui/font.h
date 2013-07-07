@@ -24,4 +24,5 @@ extern int font_size[256];
 extern u16 back_framewidth;
 extern u8 SILENT;
 
+extern void WaitWKF();
 #endif

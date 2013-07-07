@@ -29,6 +29,10 @@
 
 #ifdef HW_RVL
 #define TYPE_USB      2
+#define TYPE_IDE      3
+#else
+#define TYPE_IDE      2
+#define TYPE_WKF      3
 #endif
 
 extern int FAT_UpdateDir(int go_up);

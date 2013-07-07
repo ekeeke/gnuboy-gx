@@ -22,13 +22,13 @@
 
 typedef struct 
 {
-	u8 aspect;		/* Aspect Ratio */
-	u8 usefilter;	/* Apply Display Filter */
-	u8 filterdmg;	/* Apply Filter also for GameBoy MONO */
-	u8 syncrtc;		/* Synchronize in-game RTC on SRAM load with your own Console RTC  */
-	u8 forcedmg;	/* Force Mono Gameboy  */
-	u8 gbamode;		/* enables GBA-only features present in some GBC games */
-	u8 paletteindex; /*Index of selected palette color*/
+  u8 aspect;       /* Aspect Ratio */
+  u8 usefilter;    /* Apply Display Filter */
+  u8 filterdmg;    /* Apply Filter also for GameBoy MONO */
+  u8 syncrtc;      /* Synchronize in-game RTC on SRAM load with your own Console RTC  */
+  u8 forcedmg;     /* Force Mono Gameboy  */
+  u8 gbamode;      /* enables GBA-only features present in some GBC games */
+  u8 paletteindex; /* Index of selected palette color */
   s8 sram_auto;
   s8 freeze_auto;
 } ConfigOptions;

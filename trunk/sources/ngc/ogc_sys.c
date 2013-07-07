@@ -15,15 +15,16 @@
 
 #include <fat.h>
 
-#ifndef HW_RVL
-#include "dvd.h"
-#else
+#ifdef HW_RVL
 #include <wiiuse/wpad.h>
 #include <di/di.h>
+#else
+#include "dvd.h"
 #endif
 
 int Shutdown = 0;
 BOOL fat_enabled;
+
 
 static u8 ConfigRequested;
 
@@ -107,8 +108,8 @@ void sys_sleep(int us)
 
 /*** 2D Video ***/
 unsigned int *xfb[2];  /*** Double buffered ***/
-int whichfb = 0;    /*** Switch ***/
-GXRModeObj *vmode;    /*** General video mode ***/
+int whichfb = 0;       /*** Switch ***/
+GXRModeObj *vmode;     /*** General video mode ***/
 
 /*** GX ***/
 #define TEX_WIDTH 160
@@ -127,9 +128,9 @@ int vwidth, vheight, oldvwidth, oldvheight;
 
 typedef struct tagcamera
 {
-  Vector pos;
-  Vector up;
-  Vector view;
+  guVector pos;
+  guVector up;
+  guVector view;
 } camera;
 
 /*** Square Matrix
@@ -260,17 +261,16 @@ static void framestart()
  * This function MUST be called at startup.
  ****************************************************************************/
 extern GXRModeObj TVEurgb60Hz480IntDf;
-extern void dvd_drive_detect();
 
 u8 gc_pal;
 void InitGCVideo ()
 {
 #ifdef HW_RVL
   /* initialize Wii DVD interface first */
-  DI_Close();
   DI_Init();
 #endif
 
+  
   /*
    * Before doing anything else under libogc,
    * Call VIDEO_Init
@@ -290,7 +290,7 @@ void InitGCVideo ()
   {
     case VI_PAL:
       /* display should be centered vertically (borders) */
-      vmode = &TVPal574IntDfScale;
+      vmode = &TVPal576IntDfScale;
       vmode->xfbHeight = 480;
       vmode->viYOrigin = (VI_MAX_HEIGHT_PAL - 480)/2;
       vmode->viHeight = 480;
@@ -352,8 +352,7 @@ void InitGCVideo ()
   WPAD_SetDataFormat(WPAD_CHAN_ALL,WPAD_FMT_BTNS_ACC_IR);
   WPAD_SetVRes(WPAD_CHAN_ALL,640,480);
 #else 
-  DVD_Init ();
-  dvd_drive_detect();
+  dvd_motor_off();               // lets stop motor on startup to allow DVD swapping if required
 #endif
 
 #ifdef HW_RVL
@@ -362,17 +361,7 @@ void InitGCVideo ()
 #endif
 
   /* Initialize FAT Interface */
-  if (fatInitDefault() == true)
-  {
-    fat_enabled = 1;
-#ifdef HW_RVL
-    fatEnableReadAhead ("sd", 6, 64);
-    fatEnableReadAhead ("usb", 6, 64);
-#else
-    fatEnableReadAhead ("carda", 6, 64);
-    fatEnableReadAhead ("cardb", 6, 64);
-#endif
-  }
+  if (fatInitDefault() == true)  fat_enabled = 1; 
 
   /* Restore Recent Files list */
   set_history_defaults();
@@ -886,7 +875,7 @@ int update_input()
   y = PAD_StickY (0);
 
   /* Check for menu request */
-  if (p & PAD_TRIGGER_Z)
+  if (p & PAD_TRIGGER_L)   // Exit Emulator and Return to Menu
   {
     ConfigRequested = 1;
     return 0;
