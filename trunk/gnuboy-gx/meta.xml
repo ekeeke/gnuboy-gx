@@ -8,7 +8,7 @@
   <long_description>Emulator updated by megalomaniac.
 
 GnuboyGX is a port for the Nintendo Gamecube and Nintendo Wii of the open-source Gnuboy emulator, originally coded by Laguna and Gilgamesh.
-Please read gnuboy-gx.txt and history.txt for list of changes.
+Please read gnuboy-gx.txt first and also see history.txt for list of changes.
 Visit http://www.gc-forever.com for any questions and updates.</long_description>
   <no_ios_reload/>
 </app>
