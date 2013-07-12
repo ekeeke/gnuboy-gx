@@ -11,6 +11,9 @@ GNUBOYGX CHANGELOG
    ... If WKF is not in Flatmode message prompt will be displayed to remove WKF SD card
    . Savestate/SRAM manager can save and load from MEMCARD or SD GECKO ( SD:/gnuboy/saves/ ) 
    . Config and History files can save and load from default SD Gecko device if found
+- Added Safemode Menu display:
+   . Force Menu to display 480i video with Digital Component cable (CRT SDTV compatibility)
+   . Hold L TRIGGER during bootup to activate
 
 [NGC/Wii]
 - IDE-EXI support added

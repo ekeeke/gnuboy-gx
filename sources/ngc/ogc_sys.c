@@ -277,7 +277,8 @@ void InitGCVideo ()
    */
 
   VIDEO_Init ();
-
+  PAD_Init ();
+  
   /*
    * Reset the video mode
    * This is always set to 60hz
@@ -303,7 +304,9 @@ void InitGCVideo ()
       gc_pal = 0;
 #ifndef HW_RVL
       /* force 480p on NTSC GameCube if the Component Cable is present */
-      if (VIDEO_HaveComponentCable()) vmode = &TVNtsc480Prog;
+      int retPAD = 0;
+      while(retPAD <= 0) { retPAD = PAD_ScanPads(); usleep(100); }
+      if(VIDEO_HaveComponentCable() && !(PAD_ButtonsDown(0) & PAD_TRIGGER_L)) vmode = &TVNtsc480Prog;
 #endif
       break;
   }
@@ -345,7 +348,6 @@ void InitGCVideo ()
   VIDEO_WaitVSync(); /*** Wait for VBL ***/
   VIDEO_WaitVSync();
 
-  PAD_Init ();
 #ifdef HW_RVL
   WPAD_Init();
   WPAD_SetIdleTimeout(60);
