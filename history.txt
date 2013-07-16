@@ -1,7 +1,7 @@
 GNUBOYGX CHANGELOG
 
 
-07/07/2013: ( Official Version 1.04.2 release by megalomaniac )
+07/15/2013: ( Official Version 1.04.2 release by megalomaniac )
 -----------
 [NGC]
 - WKF support added
